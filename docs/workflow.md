@@ -1,56 +1,68 @@
-# Szczegółowy przepływ (workflow) i architektura
+# Detailed workflow and architecture
 
-> Pełny opis wewnętrznego pipeline'u. Przegląd i szybki start: [README](../README.md). Co gdzie trafia: [outputs.md](outputs.md).
+> Full description of the internal pipeline. Overview and quick start: [README](../README.md). What goes where: [outputs.md](outputs.md).
 
-## Workflow — szczegółowy opis
+Below is the complete data flow from input (two `.owl` files) to output
+(`merged_ontology.owl`).
 
-Poniżej opisany jest kompletny przepływ danych od wejścia (dwa pliki `.owl`) do wyjścia (`merged_ontology.owl`).
+### 1. Argument loading (`load_arguments.py`)
 
-### 1. Wczytanie argumentów (`load_arguments.py`)
-
-Parsowane są argumenty CLI i walidowane ścieżki do plików wejściowych. Wynikiem jest `LoadedArguments` — Pydantic model przechowujący wszystkie parametry sesji.
+CLI arguments are parsed and input-file paths validated. The result is a
+`LoadedArguments` Pydantic model holding all session parameters.
 
 ---
 
-### 2. Załadowanie ontologii (`ontology/graph.py` → `create_ontology`)
+### 2. Ontology loading (`ontology/graph.py` → `create_ontology`)
 
-Każda ontologia jest wczytywana przez `rdflib` z pliku OWL/RDF do obiektu `Graph`. Następuje preprocessing:
+Each ontology is read by `rdflib` from an OWL/RDF file into a `Graph`. Preprocessing follows:
 
-- **Relabelowanie encji** — jeśli encja ma przypisany `rdfs:label`, jej lokalny fragment URI (część po `#` lub `/`) jest zastępowany wartością etykiety (spacje → `_`), po czym triplet `rdfs:label` jest usuwany. Cel: zamiast generycznych identyfikatorów jak `Class_42`, LLM widzi semantyczne nazwy jak `MedicalProcedure`. Encje, których docelowe URI jest już zajęte, są pomijane.
+- **Entity relabeling** — if an entity has an `rdfs:label`, its local URI fragment
+  (the part after `#` or `/`) is replaced by the label value (spaces → `_`), and
+  the `rdfs:label` triple is removed. Goal: instead of generic identifiers like
+  `Class_42`, the LLM sees semantic names like `MedicalProcedure`. Entities whose
+  target URI is already taken are skipped.
 
-Po tym kroku oba grafy (`onto_1`, `onto_2`) zawierają wyłącznie semantycznie nazwane encje bez nadmiarowych etykiet.
+After this step both graphs (`onto_1`, `onto_2`) contain only semantically named
+entities without redundant labels.
 
 ---
 
 ### 3. Alignment (`alignment/aml_alignment.py`)
 
-Wywoływane jest narzędzie **AgreementMakerLight (AML)** jako proces Java. AML analizuje obie ontologie i produkuje plik EDOAL (XML) z listą par encji, które uznaje za powiązane.
+The **AgreementMakerLight (AML)** tool is invoked as a Java process. AML analyzes
+both ontologies and produces an EDOAL (XML) file listing entity pairs it considers related.
 
-Każdy alignment ma postać:
+Each alignment has the form:
 ```
 Alignment(entity1=URI, entity2=URI, measure=0.0–1.0, relation="="|"<"|">"|...)
 ```
 
-- `entity1` — encja z onto_1
-- `entity2` — odpowiadająca encja z onto_2
-- `measure` — siła dopasowania (0 = brak podobieństwa, 1 = identyczne)
-- `relation` — typ relacji (`=` znaczy tożsamość konceptualna, `<`/`>` subklasa)
+- `entity1` — entity from onto_1
+- `entity2` — corresponding entity from onto_2
+- `measure` — match strength (0 = no similarity, 1 = identical)
+- `relation` — relation type (`=` means conceptual identity, `<`/`>` subclass)
 
-Wynikiem jest lista `list[Alignment]` posortowana później malejąco po `measure`.
-
----
-
-### 4. Naiwny merge (baseline) (`ontology/merge.py` → `apply_alignments`)
-
-Tworzona jest prosta unia obu grafów, gdzie dla każdego alignmentu `entity2` jest "złożone" w `entity1` — wszystkie triplety `entity2` są przepisywane na `entity1`. Wynik zapisywany jest jako `applied_alignments.owl` w katalogu wyjściowym.
-
-**Po co:** To nie jest wynikowy merge. To punkt odniesienia — baseline, który można porównać z wynikiem LLM, żeby ocenić jakość scalania.
+The result is a `list[Alignment]`, later sorted by descending `measure`.
 
 ---
 
-### 5. Budowanie namespace codec (`merge_environment.py` → `build_namespace_codec`)
+### 4. Naive merge (baseline) (`ontology/merge.py` → `apply_alignments`)
 
-Namespace'y zbierane są ze **wszystkich pozycji** w tripletach obu ontologii (subject, predicate, object). Następnie dokładane są well-known NS (`owl`, `rdf`, `rdfs`, `xsd`, `swrl`, `protege`, ...) — tylko te, których nie ma już w danych. Każdemu unikalnemu namespace'owi przypisywany jest krótki kod leksykograficzny (`aa, ab, ac, ..., az, ba, bb, ...`):
+A simple union of both graphs is created where, for each alignment, `entity2` is
+"collapsed" into `entity1` — all `entity2` triples are rewritten onto `entity1`.
+The result is saved as `applied_alignments.owl` in the output directory.
+
+**Why:** this is not the final merge. It is a reference point — a baseline that
+can be compared against the LLM result to assess merge quality.
+
+---
+
+### 5. Building the namespace codec (`merge_environment.py` → `build_namespace_codec`)
+
+Namespaces are collected from **all positions** in both ontologies' triples
+(subject, predicate, object). Then well-known NSs (`owl`, `rdf`, `rdfs`, `xsd`,
+`swrl`, `protege`, ...) are added — only those not already present in the data.
+Each unique namespace is assigned a short lexicographic code (`aa, ab, ac, ..., az, ba, bb, ...`):
 
 ```
 http://cmt#                              →  aa
@@ -58,30 +70,35 @@ http://ekaw#                             →  ab
 http://www.w3.org/1999/02/22-rdf-syntax-ns#  →  ae
 http://www.w3.org/2002/07/owl#           →  ah
 ...
-zz  →  http://merged#   ← zarezerwowany dla encji tworzonych przez LLM
+zz  →  http://merged#   ← reserved for entities created by the LLM
 ```
 
-Kod `zz` jest zawsze zarezerwowany i pomijany w sekwencji — służy jako namespace dla zupełnie nowych encji, które LLM może wprowadzić podczas scalania.
+The `zz` code is always reserved and skipped in the sequence — it serves as the
+namespace for entirely new entities the LLM may introduce during merging.
 
-Zwracane struktury:
-- `uri_to_code` — pełne URI podmiotu → kod (dla `graph_to_string`)
-- `code_to_ns` — kod → prefix NS (do dekodowania odpowiedzi LLM)
-- `ns_to_code` — prefix NS → kod (do sprawdzania well-known przez kod zamiast string-prefix)
-- `well_known_codes` — frozenset kodów well-known NS
+Returned structures:
+- `uri_to_code` — full subject URI → code (for `graph_to_string`)
+- `code_to_ns` — code → NS prefix (to decode the LLM's response)
+- `ns_to_code` — NS prefix → code (to check well-known by code instead of string prefix)
+- `well_known_codes` — frozenset of well-known NS codes
 
-Codec jest budowany **raz** wspólnie dla obu ontologii przed ekstrakcją i przekazywany w dół przez cały pipeline.
-
----
-
-### 6. Ekstrakcja środowisk scalania (`extract_environments/module.py`)
-
-Ekstrakcja przebiega w **dwóch fazach**. Faza 1 (`extract`) tworzy szkielet — po jednym środowisku na alignment, z seed-węzłami w środku i bezpośrednimi sąsiadami w borderze. Faza 2 (`expand_extracted`) iteracyjnie wciąga border do wnętrza środowisk, aż zabraknie miejsca lub węzłów do ekspansji.
+The codec is built **once**, jointly for both ontologies, before extraction and
+passed down through the whole pipeline.
 
 ---
 
-#### Faza 1 — `ExtractEnvironmentsModule.extract`
+### 6. Merge-environment extraction (`extract_environments/module.py`)
 
-##### 6a. Robocze kopie grafów
+Extraction runs in **two phases**. Phase 1 (`extract`) creates a skeleton — one
+environment per alignment, with seed nodes in the interior and direct neighbours
+in the border. Phase 2 (`expand_extracted`) iteratively pulls the border into the
+environments' interiors until space or nodes run out.
+
+---
+
+#### Phase 1 — `ExtractEnvironmentsModule.extract`
+
+##### 6a. Working graph copies
 
 ```python
 source_1 = Graph()
@@ -92,33 +109,38 @@ for triple in onto_2:
     source_2.add(triple)
 ```
 
-Oba grafy są kopiowane do roboczych kopii. Triplety seed-węzłów są **przenoszone** (usuwane z source) przy ekstrakcji. Po przetworzeniu wszystkich alignmentów to co pozostanie w `source_1`/`source_2` to **leftovers** — encje bez dopasowania, pass-through do wyniku.
+Both graphs are copied into working copies. Seed-node triples are **moved**
+(removed from source) during extraction. After all alignments are processed, what
+remains in `source_1`/`source_2` are the **leftovers** — unmatched entities,
+pass-through to the result.
 
-##### 6b. Pula alignmentów (`_AlignmentPool`)
+##### 6b. Alignment pool (`_AlignmentPool`)
 
 ```python
 pool = _AlignmentPool(alignments)
-# _sorted — lista posortowana rosnąco po measure; pop() z końca = O(1) najwyższy
+# _sorted — list sorted ascending by measure; pop() from the end = O(1) highest
 ```
 
-`pop()` zawsze zwraca alignment o **najwyższym** `measure` (najlepsze dopasowania pierwsze).
+`pop()` always returns the alignment with the **highest** `measure` (best matches first).
 
-##### 6c. Budowanie środowiska (`_build_merge_environment`)
+##### 6c. Building an environment (`_build_merge_environment`)
 
-Dla każdego alignmentu jedno środowisko:
+One environment per alignment:
 
-**1. Seed — przeniesienie bezpośrednich trójek**
+**1. Seed — moving the direct triples**
 
 ```python
-seed1 = URIRef(seed_al.entity1)   # strona onto_1
-seed2 = URIRef(seed_al.entity2)   # strona onto_2
+seed1 = URIRef(seed_al.entity1)   # onto_1 side
+seed2 = URIRef(seed_al.entity2)   # onto_2 side
 
 triples = move_entity_triples(seed1, source_1, sub1)
 ```
 
-`move_entity_triples` przenosi **wszystkie** triplety, w których seed jest podmiotem **lub** obiektem — więcej kontekstu niż same outgoing edges. Po przeniesieniu triplety nie istnieją już w `source_1`.
+`move_entity_triples` moves **all** triples in which the seed is subject **or**
+object — more context than just outgoing edges. After moving, the triples no
+longer exist in `source_1`.
 
-**2. Klasyfikacja sąsiadów → border**
+**2. Neighbour classification → border**
 
 ```python
 for s, _, o in triples:
@@ -127,38 +149,50 @@ for s, _, o in triples:
             border_set.add(neighbor)
 ```
 
-Każdy sąsiad (URIRef, nie-well-known, nieistniejący już w seeds) trafia do `border_set`. Nie ma wyjątków — nawet jeśli sąsiad ma alignment w puli, zostaje w borderze. Jego alignment zostanie pobrany jako seed **własnego** środowiska w kolejnej iteracji.
+Every neighbour (URIRef, non-well-known, not already in seeds) goes to
+`border_set`. No exceptions — even if a neighbour has an alignment in the pool, it
+stays in the border. Its alignment will be picked up as the seed of **its own**
+environment in a later iteration.
 
-| Przypadek | Akcja |
-|-----------|-------|
-| Well-known NS (`owl:`, `rdf:`, `xsd:`, ...) | pomijany — LLM zna te słowniki |
-| Już w seeds | pomijany |
-| Każdy inny URIRef | → `border` |
+| Case | Action |
+|------|--------|
+| Well-known NS (`owl:`, `rdf:`, `xsd:`, ...) | skipped — the LLM knows these vocabularies |
+| Already in seeds | skipped |
+| Any other URIRef | → `border` |
 
-**3. Kopiowanie trójek border-węzłów**
+**3. Copying border-node triples**
 
 ```python
 for node in border_set1:
     for triple in source_1.triples((node, None, None)):
-        border1_graph.add(triple)   # KOPIA, source pozostaje niezmieniony
+        border1_graph.add(triple)   # COPY, source stays unchanged
 ```
 
-Trójki border-węzłów są **kopiowane** (nie przenoszone) — ten sam węzeł może pojawiać się w borderze wielu środowisk i za każdym razem dostarczać pełen kontekst. Trójki nigdy nie są konsumowane z source przez samą przynależność do granicy.
+Border-node triples are **copied** (not moved) — the same node may appear in the
+border of many environments and provide full context each time. Triples are never
+consumed from source merely by belonging to a border.
 
-> **Uwaga:** trójki bezpośrednio łączące border-węzeł z seedem (np. `(border_node, prop, seed1)`) zostały już przeniesione przez `move_entity_triples(seed1, ...)` i **nie pojawią się** w `border1_graph`. Jest to zachowanie poprawne — te relacje są widoczne w `onto_1` po stronie seeda.
+> **Note:** triples that directly connect a border node to the seed (e.g.
+> `(border_node, prop, seed1)`) were already moved by `move_entity_triples(seed1, ...)`
+> and **will not appear** in `border1_graph`. This is correct — those relations are
+> visible in `onto_1` on the seed side.
 
-**Wynik fazy 1:** `(environments: list[MergeEnvironment], onto_1_leftover: Graph, onto_2_leftover: Graph)`
+**Phase 1 result:** `(environments: list[MergeEnvironment], onto_1_leftover: Graph, onto_2_leftover: Graph)`
 
-- `environments` — lista środowisk, każde z: `onto_1` (trójki seed1), `onto_2` (trójki seed2), `border1_graph`, `border2_graph`, `alignments: [seed_al]`
-- `onto_1_leftover`, `onto_2_leftover` — pozostałości source po ekstrakcji: encje bez żadnego alignmentu, pass-through do wyniku bez zmian
+- `environments` — list of environments, each with: `onto_1` (seed1 triples),
+  `onto_2` (seed2 triples), `border1_graph`, `border2_graph`, `alignments: [seed_al]`
+- `onto_1_leftover`, `onto_2_leftover` — source remainders after extraction:
+  entities without any alignment, pass-through to the result unchanged
 
 ---
 
-#### Faza 2 — `ExtractEnvironmentsModule.expand_extracted`
+#### Phase 2 — `ExtractEnvironmentsModule.expand_extracted`
 
-Po fazie 1 każde środowisko ma seed w środku i border na granicy. Faza 2 iteracyjnie wciąga węzły z bordera do wnętrza (`onto_1`, `onto_2`), stopniowo poszerzając kontekst dostępny dla LLM.
+After phase 1 each environment has a seed in the interior and a border at the
+edge. Phase 2 iteratively pulls border nodes into the interior (`onto_1`,
+`onto_2`), gradually widening the context available to the LLM.
 
-##### Globalne zamrożenie (`global_frozen`)
+##### Global freeze (`global_frozen`)
 
 ```python
 global_frozen: set[URIRef] = {
@@ -170,9 +204,12 @@ global_frozen: set[URIRef] = {
 }
 ```
 
-Na początku fazy 2 zbiór `global_frozen` zawiera wszystkie seed-węzły ze wszystkich środowisk. Węzeł raz dodany do wnętrza jakiegoś środowiska jest zamrożony globalnie — nie może trafić do wnętrza innego środowiska. Może nadal figurować w `border_graph` innych środowisk jako kontekst, ale nie zostanie stamtąd przeniesiony.
+At the start of phase 2, `global_frozen` contains all seed nodes from all
+environments. A node once added to some environment's interior is frozen globally
+— it cannot enter another environment's interior. It may still appear in other
+environments' `border_graph` as context, but will not be moved from there.
 
-##### Pętla round-robin
+##### Round-robin loop
 
 ```python
 active = list(range(len(environments)))
@@ -194,31 +231,36 @@ while active:
         break
 ```
 
-W każdej rundzie każde aktywne środowisko dostaje **jeden krok ekspansji z onto_1 i jeden z onto_2** (łącznie ≤ 2 węzły na środowisko na rundę). Dzięki round-robin węzły nie są monopolizowane przez pierwsze środowisko — każdy alignment dostaje szansę na rozrost.
+In each round every active environment gets **one expansion step from onto_1 and
+one from onto_2** (at most 2 nodes per environment per round). Thanks to
+round-robin, nodes are not monopolized by the first environment — every alignment
+gets a chance to grow.
 
-Środowisko jest usuwane z rotacji gdy:
-- `env.interior_char_estimate() >= max_chars` — wnętrze przekroczyło limit rozmiaru, lub
-- brak dalszych węzłów w `border1` i `border2` — wszystkie zostały wciągnięte lub zamrożone.
+An environment is removed from rotation when:
+- `env.interior_char_estimate() >= max_chars` — the interior exceeded the size
+  limit, or
+- no more nodes in `border1` and `border2` — all were pulled in or frozen.
 
-Pętla kończy się gdy `active` jest puste lub w całej rundzie nie udało się nic expandować (wszystkie bordersy wyczerpane / zamrożone).
+The loop ends when `active` is empty or an entire round expanded nothing (all
+borders exhausted / frozen).
 
-##### Krok ekspansji — `_expand_one`
+##### Expansion step — `_expand_one`
 
 ```python
 def _expand_one(border, border_queued, border_graph, interior, source, global_frozen, is_wk):
     while border:
         node = border.popleft()
         if node in global_frozen or is_wk(node):
-            continue          # wyrzuć — zamrożony lub well-known, permanentnie
+            continue          # discard — frozen or well-known, permanently
 
         triples = move_entity_triples(node, source, interior)
         global_frozen.add(node)
 
-        # Usuń outgoing trójki węzła z border_graph — jest już we wnętrzu
+        # Remove the node's outgoing triples from border_graph — it is now in the interior
         for triple in list(border_graph.triples((node, None, None))):
             border_graph.remove(triple)
 
-        # Odkryj nowych sąsiadów i dodaj ich do bordera
+        # Discover new neighbours and add them to the border
         for s, _, o in triples:
             for neighbour in (s, o):
                 if (isinstance(neighbour, URIRef)
@@ -233,15 +275,25 @@ def _expand_one(border, border_queued, border_graph, interior, source, global_fr
     return False
 ```
 
-**Border rośnie dynamicznie.** Gdy węzeł `N` jest expandowany, jego trójki są przenoszone z `source` do `interior`. Każdy sąsiad `N` w tych trójkach (który nie jest zamrożony ani well-known i nie był jeszcze zekolejkowany) staje się **nowym kandydatem do bordera** — trafia na koniec deque i jego trójki są kopiowane do `border_graph` jako kontekst. Oznacza to, że border środowiska rozrasta się falowo: w fazie 1 są w nim tylko bezpośredni sąsiedzi seeda (odległość 1), po pierwszym kroku ekspansji pojawiają się węzły na odległości 2, po kolejnym — odległości 3, itd.
+**The border grows dynamically.** When a node `N` is expanded, its triples are
+moved from `source` to `interior`. Each neighbour of `N` in those triples (that is
+not frozen or well-known and has not been queued yet) becomes a **new border
+candidate** — it is appended to the deque and its triples are copied into
+`border_graph` as context. So the environment's border grows in waves: in phase 1
+it holds only the seed's direct neighbours (distance 1); after the first expansion
+step, nodes at distance 2 appear; after the next, distance 3, and so on.
 
-Kolejność ekspansji to BFS od seeda: węzły dodane w fazie 1 (bezpośredni sąsiedzi seeda) są z przodu kolejki, węzły odkryte podczas ekspansji trafiają na koniec. Naturalna kolejność BFS zapewnia, że bliższe kontekstowo węzły wchodzą do wnętrza przed dalszymi.
+The expansion order is BFS from the seed: nodes added in phase 1 (the seed's
+direct neighbours) are at the front of the queue, nodes discovered during
+expansion go to the back. This natural BFS order ensures contextually closer nodes
+enter the interior before more distant ones.
 
-Węzeł już zekolejkowany (`border_queued`) nigdy nie jest dodawany dwukrotnie — to zapobiega duplikatom w deque gdy ten sam węzeł jest sąsiadem wielu ekspandowanych węzłów.
+A node already queued (`border_queued`) is never added twice — this prevents
+duplicates in the deque when the same node is a neighbour of several expanded nodes.
 
-##### Renderowanie bordera po fazie 2
+##### Border rendering after phase 2
 
-`MergeEnvironment._render_border` automatycznie pomija węzły już obecne we wnętrzu:
+`MergeEnvironment._render_border` automatically skips nodes already present in the interior:
 
 ```python
 interior_subjects = {s for s, _, _ in interior if isinstance(s, URIRef)}
@@ -251,15 +303,20 @@ subjects = sorted(
 )
 ```
 
-Dzięki temu węzeł, który przeszedł z bordera do `onto_1`, pojawi się w sekcji `[Ontology_1]` (z pełnymi trójkami) — a nie zduplikuje się w `[Border_1]`.
+So a node that moved from the border into `onto_1` appears in the `[Ontology_1]`
+section (with full triples) — and is not duplicated in `[Border_1]`.
 
-**Wynik fazy 2:** środowiska są zmodyfikowane in-place; `source_1`/`source_2` są dalej konsumowane — to co z nich pozostanie po obu fazach to ostateczne leftovers (encje bez żadnego alignmentu i nierozważone jako sąsiedzi żadnego seeda).
+**Phase 2 result:** environments are modified in-place; `source_1`/`source_2` are
+further consumed — what remains after both phases is the final leftovers (entities
+without any alignment, not considered as a neighbour of any seed).
 
 ---
 
-### 7. Serializacja do KG2Code (`merge_environment.py` → `to_string`)
+### 7. Serialization to KG2Code (`merge_environment.py` → `to_string`)
 
-Każde `MergeEnvironment` jest serializowane do formatu KG2Code. **Każdy URIRef w każdej pozycji tripletu** — subject, predicate, object — jest zakodowany jako `code:LocalName`:
+Each `MergeEnvironment` is serialized to the KG2Code format. **Every URIRef in
+every triple position** — subject, predicate, object — is encoded as
+`code:LocalName`:
 
 ```python
 Entity('aa:Person', tuples=[
@@ -268,7 +325,10 @@ Entity('aa:Person', tuples=[
 ])
 ```
 
-Dzięki temu każdy element tripletu jest w pełni dekodowalny: `code_to_ns["ah"] + "subClassOf"` → `http://www.w3.org/2002/07/owl#subClassOf`. Literały (stringi, liczby) zapisywane są bez kodowania. Węzły graniczne też są kodowane. Alignmenty doklejane są jako osobna sekcja:
+This makes every triple element fully decodable: `code_to_ns["ah"] + "subClassOf"`
+→ `http://www.w3.org/2002/07/owl#subClassOf`. Literals (strings, numbers) are
+written without encoding. Border nodes are encoded too. Alignments are appended as
+a separate section:
 
 ```
 [Ontology_1]:
@@ -287,23 +347,25 @@ aa:Person
 Researcher ↔ Researcher (relation: =)
 ```
 
-`to_string()` zwraca `(prompt: str, code_to_ns: dict)`. Słownik jest potrzebny do dekodowania odpowiedzi LLM.
+`to_string()` returns `(prompt: str, code_to_ns: dict)`. The dictionary is needed
+to decode the LLM's response.
 
 ---
 
-### 8. Scalanie przez LLM (`merge_environments/module.py` + `agent.py`)
+### 8. Merging by the LLM (`merge_environments/module.py` + `agent.py`)
 
-Środowiska są wysyłane **równolegle** do LLM przez `asyncio.gather`, z ograniczeniem przez semafor (`parallel_llm_request_count`).
+Environments are sent to the LLM **in parallel** via `asyncio.gather`, bounded by
+a semaphore (`parallel_llm_request_count`).
 
-Agent Ollama dostaje prompt z KG2Code i instrukcję, która nakazuje mu:
-- dotrzymać alignmentów (obowiązkowe scalenia)
-- zachować relacje do wszystkich węzłów z Border_1 i Border_2
-- usunąć redundantne encje (np. dwie nazwy tego samego konceptu)
-- naprawić niespójności domenowe (np. usunąć błędne relacje is-a)
-- wprowadzić nowe relacje cross-ontology tam gdzie ma to sens domenowy
-- zminimalizować orphan classes (klasy bez superklasy)
+The agent receives the KG2Code prompt and an instruction requiring it to:
+- honour the alignments (mandatory merges)
+- preserve relations to all nodes in Border_1 and Border_2
+- remove redundant entities (e.g. two names for the same concept)
+- fix domain inconsistencies (e.g. remove wrong is-a relations)
+- introduce new cross-ontology relations where domain-sensible
+- minimize orphan classes (classes without a superclass)
 
-LLM odpowiada w formacie JSON (`MergedOntology.model_json_schema()`):
+The LLM responds in JSON (`MergedOntology.model_json_schema()`):
 ```json
 {
   "Merged_Ontology": [
@@ -312,86 +374,96 @@ LLM odpowiada w formacie JSON (`MergedOntology.model_json_schema()`):
 }
 ```
 
-Encja ma tylko `uri` (w formacie `code:LocalName`) i `tuples` — nie ma osobnego pola `name`, bo nazwa jest już osadzona w `uri`. LLM może użyć `zz:NowaNazwa` dla zupełnie nowych konceptów.
+An entity has only `uri` (in `code:LocalName` form) and `tuples` — there is no
+separate `name` field, because the name is embedded in the `uri`. The LLM may use
+`zz:NewName` for entirely new concepts.
 
-`entities_to_graph(entities, code_to_ns)` dekoduje każdy element przez `_decode(coded, code_to_ns)`:
+`entities_to_graph(entities, code_to_ns)` decodes each element via `_decode(coded, code_to_ns)`:
 - `"aa:Researcher"` → `URIRef("http://cmt#Researcher")`
 - `"ah:subClassOf"` → `URIRef("http://www.w3.org/2002/07/owl#subClassOf")`
 - `"zz:NewConcept"` → `URIRef("http://merged#NewConcept")`
-- `"some string"` (brak kodu) → `Literal("some string")`
+- `"some string"` (no code) → `Literal("some string")`
 
-Triplety z predykatem nie będącym URIRef są pomijane.
+Triples whose predicate is not a URIRef are skipped.
+
+> **Robustness:** if the LLM call raises (timeout, malformed JSON), the environment
+> falls back to a deterministic merge (`_fallback_merge`) and logs a `WARNING`, so a
+> single bad environment never crashes the run. See [backends.md](backends.md) for
+> the request timeout that keeps slow reasoning models from always hitting this path.
 
 ---
 
 ### 9. Debug output (`debug/`)
 
-Gdy `DEBUG=true`, po zakończeniu mergowania generowane są pliki HTML z wizualizacjami (`pyvis`):
+When `DEBUG=true`, after merging, HTML visualizations (`pyvis`) are generated:
 
-| Plik | Zawartość |
-|------|-----------|
-| `debug_pre_merge.html` | Wszystkie środowiska przed scalaniem + leftovers (onto_1 i onto_2) — kolory: niebieski (onto_1), pomarańczowy (onto_2), zielony (granica), czerwony (seed alignmentu) |
-| `debug_merge_env_N.html` | Pojedyncze środowisko N przed scalaniem; różowe krawędzie = triplety które znikną po merge |
-| `debug_post_merge.html` | Wszystkie scalone środowiska + leftovers w jednym widoku |
-| `debug_merged_env_N.html` | Scalone środowisko N; różowe krawędzie = triplety dodane przez LLM |
-| `onto_1_leftover.html` | Grafowa wizualizacja onto_1 leftover |
-| `onto_2_leftover.html` | Grafowa wizualizacja onto_2 leftover |
-| `env_diff_N.txt` | Tekstowy diff dla środowiska N: które triplety LLM usunął, które dodał |
-
----
-
-### 10. Integracja (`integrate_environments.py`)
-
-Wszystkie scalone podgrafy (`merged_environments`) plus `onto_1_leftover` i `onto_2_leftover` są łączone w jeden `rdflib.Graph` przez unię tripletów.
+| File | Contents |
+|------|----------|
+| `debug_pre_merge.html` | All environments before merging + leftovers (onto_1 and onto_2) — colors: blue (onto_1), orange (onto_2), green (border), red (alignment seed) |
+| `debug_merge_env_N.html` | A single environment N before merging; pink edges = triples that will disappear after merge |
+| `debug_post_merge.html` | All merged environments + leftovers in one view |
+| `debug_merged_env_N.html` | Merged environment N; pink edges = triples added by the LLM |
+| `onto_1_leftover.html` | Graph visualization of onto_1 leftover |
+| `onto_2_leftover.html` | Graph visualization of onto_2 leftover |
+| `env_diff_N.txt` | Text diff for environment N: which triples the LLM removed, which it added |
 
 ---
 
-### 11. Zapis wyniku (`ontology/graph.py` → `save_ontology`)
+### 10. Integration (`integrate_environments.py`)
 
-Końcowy graf jest serializowany do formatu RDF/XML i zapisywany jako `merged_ontology.owl` w katalogu wyjściowym.
+All merged subgraphs (`merged_environments`) plus `onto_1_leftover` and
+`onto_2_leftover` are combined into one `rdflib.Graph` by a union of triples.
 
 ---
 
-## Pliki wyjściowe
+### 11. Saving the result (`ontology/graph.py` → `save_ontology`)
+
+The final graph is serialized to RDF/XML and saved as `merged_ontology.owl` in the
+output directory.
+
+---
+
+## Output files
 
 ```
 <output>/
-  merged_ontology.owl       — wynikowa ontologia
-  applied_alignments.owl    — baseline: naiwna unia z alignmentami (do porównania)
-  debug_pre_merge.html      — (DEBUG=true) wizualizacja przed scalaniem
-  debug_post_merge.html     — (DEBUG=true) wizualizacja po scalaniu
-  debug_merge_env_N.html    — (DEBUG=true) środowisko N pre-merge
-  debug_merged_env_N.html   — (DEBUG=true) środowisko N post-merge
-  onto_1_leftover.html      — (DEBUG=true) encje bez alignmentu z onto_1
-  onto_2_leftover.html      — (DEBUG=true) encje bez alignmentu z onto_2
-  env_diff_N.txt            — (DEBUG=true) diff tripletów dla środowiska N
+  merged_ontology.owl       — the resulting ontology
+  applied_alignments.owl    — baseline: naive union with alignments (for comparison)
+  debug_pre_merge.html      — (DEBUG=true) pre-merge visualization
+  debug_post_merge.html     — (DEBUG=true) post-merge visualization
+  debug_merge_env_N.html    — (DEBUG=true) environment N pre-merge
+  debug_merged_env_N.html   — (DEBUG=true) environment N post-merge
+  onto_1_leftover.html      — (DEBUG=true) unaligned entities from onto_1
+  onto_2_leftover.html      — (DEBUG=true) unaligned entities from onto_2
+  env_diff_N.txt            — (DEBUG=true) triple diff for environment N
 ```
+
+See [outputs.md](outputs.md) for the full artifact map including the report step.
 
 ---
 
-## Architektura
+## Architecture
 
 ```
 main.py
 └── LLMOntologyMerger.merge()
-    ├── create_ontology(onto_1)           # wczytaj + relabeluj
+    ├── create_ontology(onto_1)           # load + relabel
     ├── create_ontology(onto_2)
-    ├── AlignmentModule.create_alignment() # AML → lista Alignment
+    ├── AlignmentModule.create_alignment() # AML → list[Alignment]
     ├── apply_alignments()                # baseline merge → applied_alignments.owl
-    ├── build_namespace_codec()           # wspólny codec URI → kody aa/ab/...
-    ├── ExtractEnvironmentsModule.extract()          # faza 1
+    ├── build_namespace_codec()           # shared URI → code codec aa/ab/...
+    ├── ExtractEnvironmentsModule.extract()          # phase 1
     │   └── _build_merge_environment() × N           # 1 env / alignment
     │       └── → MergeEnvironment (onto_1_sub, onto_2_sub, border, alignments)
-    ├── ExtractEnvironmentsModule.expand_extracted() # faza 2
+    ├── ExtractEnvironmentsModule.expand_extracted() # phase 2
     │   └── _expand_one() × round-robin              # border → interior, BFS
-    ├── MergeEnvironmentsModule.merge() × N  [równolegle]
+    ├── MergeEnvironmentsModule.merge() × N  [parallel]
     │   ├── env.to_string()               # → KG2Code prompt
-    │   ├── merge_agent.run()             # → Ollama LLM
+    │   ├── merge_agent.run()             # → LLM
     │   └── entities_to_graph()           # → rdflib.Graph
-    ├── save_pre_merge_debug()            # (DEBUG) HTML wizualizacje
+    ├── save_pre_merge_debug()            # (DEBUG) HTML visualizations
     ├── save_post_merge_debug()
     ├── save_diff_debug()
-    ├── integrate_environments()          # unia wszystkich grafów + leftovers
+    ├── integrate_environments()          # union of all graphs + leftovers
     └── save_ontology()                   # → merged_ontology.owl
 ```
-

@@ -1,60 +1,60 @@
-# Backendy LLM i konfiguracja
+# LLM backends and configuration
 
-Model językowy jest jedynym miejscem, w którym wchodzi wiedza zewnętrzna
-(etap 8 w [workflow.md](workflow.md)). Dostęp do modelu odbywa się przez
-protokół **OpenAI Chat Completions**, więc dowolny zgodny endpoint da się podłączyć.
-Wszystkie ustawienia idą przez plik `.env` (skopiuj z `.env.example`).
+The language model is the only place where external knowledge enters (stage 8 in
+[workflow.md](workflow.md)). The model is accessed through the **OpenAI Chat
+Completions** protocol, so any compatible endpoint can be connected. All settings
+go through the `.env` file (copy it from `.env.example`).
 
-## Trzy backendy
+## Three backends
 
-| Backend | Kiedy | Klucz w `.env` |
-|---------|-------|----------------|
-| **Ollama** (domyślny) | model lokalny na `localhost:11434` | `OLLAMA_MODEL`, `OLLAMA_HOST` |
-| **vLLM** (OpenAI-compatible) | samodzielnie hostowany serwer (np. gpt-oss-20b na GPU) | `USE_VLLM=true`, `VLLM_MODEL`, `VLLM_HOST` |
-| **OpenRouter** | wybierany flagą `--model` na CLI | `OPENROUTER_API_KEY` (+ opcjonalnie `OPENROUTER_HOST`) |
+| Backend | When | Keys in `.env` |
+|---------|------|----------------|
+| **Ollama** (default) | local model on `localhost:11434` | `OLLAMA_MODEL`, `OLLAMA_HOST` |
+| **vLLM** (OpenAI-compatible) | self-hosted server (e.g. gpt-oss-20b on a GPU) | `USE_VLLM=true`, `VLLM_MODEL`, `VLLM_HOST` |
+| **OpenRouter** | selected via the `--model` CLI flag | `OPENROUTER_API_KEY` (+ optional `OPENROUTER_HOST`) |
 
-Wybór:
-- brak `--model` + `USE_VLLM=false` → **Ollama**;
-- brak `--model` + `USE_VLLM=true` → **vLLM** (`VLLM_HOST`, `api_key="Empty"`);
-- `--model <nazwa>` → **OpenRouter** (`OPENROUTER_API_KEY`, host `openrouter.ai/api/v1`).
+Selection:
+- no `--model` + `USE_VLLM=false` → **Ollama**;
+- no `--model` + `USE_VLLM=true` → **vLLM** (`VLLM_HOST`, `api_key="Empty"`);
+- `--model <name>` → **OpenRouter** (`OPENROUTER_API_KEY`, host `openrouter.ai/api/v1`).
 
-## Przykład: gpt-oss-20b przez vLLM (setup z artykułu)
+## Example: gpt-oss-20b via vLLM (the paper's setup)
 
 ```dotenv
 USE_VLLM=true
 VLLM_MODEL=openai/gpt-oss-20b
-VLLM_HOST=http://<host>/vllm-gh200   # endpoint OpenAI-compatible serwujący model
+VLLM_HOST=http://<host>/vllm-gh200   # OpenAI-compatible endpoint serving the model
 PARALLEL_LLM_REQUEST_COUNT=24
 DEBUG=1
 ```
 
-Uruchomienie (bez `--model` → używa backendu z `.env`):
+Run (no `--model` → uses the backend from `.env`):
 ```bash
 uv run llm-onto-merger --base A.owl --candidate B.owl --output out/
 ```
 
-## Timeout — ważne dla modeli rozumujących
+## Timeout — important for reasoning models
 
-`gpt-oss-20b` to model **rozumujący**: pojedyncze wywołanie na samodzielnie
-hostowanym vLLM potrafi trwać kilkadziesiąt sekund (zimny start / obciążenie).
-Klient ma dlatego wydłużony timeout, konfigurowalny zmienną środowiskową:
+`gpt-oss-20b` is a **reasoning** model: a single call to a self-hosted vLLM can
+take tens of seconds (cold start / load). The client therefore uses an extended
+timeout, configurable via an environment variable:
 
 ```dotenv
-LLM_REQUEST_TIMEOUT=600   # sekundy (domyślnie 600)
+LLM_REQUEST_TIMEOUT=600   # seconds (default 600)
 ```
 
-Bez tego każde wywołanie kończyłoby się timeoutem i **cichym fallbackiem** do
-deterministycznego scalania (unia + kolaps par), co po cichu unieważniłoby przebieg.
-Fallback jest logowany jako `WARNING`, a `cost_stats.json` pokazałby `call_count: 0`.
+Without this, every call would time out and **silently fall back** to a
+deterministic merge (union + pair collapse), quietly invalidating a run. The
+fallback is logged as a `WARNING`, and `cost_stats.json` would show `call_count: 0`.
 
-## Równoległość
+## Parallelism
 
-`PARALLEL_LLM_REQUEST_COUNT` (albo `--parallel-llm-request-count`) ustawia liczbę
-równoległych wywołań LLM (jeden na środowisko scalania). W artykule: 24 dla vLLM.
+`PARALLEL_LLM_REQUEST_COUNT` (or `--parallel-llm-request-count`) sets the number
+of concurrent LLM calls (one per merge environment). In the paper: 24 for vLLM.
 
-## Powtórzone pomiary a cache promptów
+## Repeated measurements and prompt caching
 
-`--run-nonce` dokleja na **początek** promptu unikatowy identyfikator, żeby
-powtórzone przebiegi tego samego datasetu nie współdzieliły prefiksu — to psuje
-cache promptów po stronie dostawcy i gwarantuje niezależne próbkowanie.
-Skrypty scenariuszowe ustawiają nonce automatycznie z `--label`.
+`--run-nonce` prepends a unique identifier to the **beginning** of the prompt so
+that repeated runs of the same dataset do not share a prefix — this defeats
+provider-side prompt caches and guarantees independent sampling. The scenario
+scripts set the nonce automatically from `--label`.
