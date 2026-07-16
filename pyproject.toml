@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=65.5.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "llm-onto-merger"
+version = "0.1.0"
+description = "LLM-assisted ontology merging framework; the LLM is accessed via OpenAI-compatible endpoints (Ollama / vLLM / OpenRouter)."
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [
+  { name = "Piotr Gugnowski" }
+]
+# Depend on the specific Agent Framework integration packages actually used,
+# NOT the `agent-framework` meta package: its `[all]` extra pulls
+# `agent-framework-azure-ai-search`, whose empty `agent_framework/__init__.py`
+# non-deterministically clobbers `agent-framework-core`'s real one and breaks
+# the import of `BaseChatClient`. Pinned to the versions used in the paper.
+dependencies = [
+  "agent-framework-core==1.1.1",
+  "agent-framework-openai==1.1.1",
+  "agent-framework-ollama==1.0.0b260423",
+  "openai",
+  "pydantic-settings",
+  "pydantic",
+  "rdflib",
+  "pyvis>=0.3.2",
+  "owlready2",
+  "matplotlib>=3.8"
+]
+
+[project.scripts]
+llm-onto-merger = "llm_onto_merger.main:main"

@@ -1,0 +1,29 @@
+**/__pycache__/
+.venv/
+.env
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+# Upload artifacts (never commit ontology upload dumps).
+# Note: files literally named "c:\uploads\..." (backslashes in the name,
+# created on Linux/Mac) are invalid paths on Windows and break checkout.
+uploads/
+**/uploads/
+*subMergedOnt*.owl
+c:\uploads*
+C:\uploads*
+**/*.csv
+**/*.jpg
+
+tests/**outputs/
+tests/**/**outputs/
+**/artifacts/*
+!artifacts/.gitkeep
+logs/
+
+uv.lock
+
+tests/inputs/
+**/*MyLogFile*
