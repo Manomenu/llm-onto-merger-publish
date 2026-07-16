@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8" />
+  <title>Legenda — debug visualizations</title>
+  <style>
+    body {
+      font-family: system-ui, sans-serif;
+      background: #f5f5f5;
+      color: #222;
+      margin: 0;
+      padding: 2rem;
+    }
+    h1 { font-size: 1.4rem; margin-bottom: 0.3rem; }
+    h2 { font-size: 1.1rem; margin: 1.8rem 0 0.6rem; border-bottom: 1px solid #ccc; padding-bottom: 0.3rem; }
+    h3 { font-size: 0.9rem; margin: 1.2rem 0 0.4rem; color: #555; text-transform: uppercase; letter-spacing: 0.05em; }
+    .subtitle { color: #666; font-size: 0.9rem; margin-bottom: 2rem; }
+    .section {
+      background: #fff;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 1.2rem 1.6rem;
+      margin-bottom: 1.5rem;
+      max-width: 780px;
+    }
+    .filename {
+      font-family: monospace;
+      font-size: 0.9rem;
+      background: #eee;
+      padding: 0.15rem 0.5rem;
+      border-radius: 4px;
+    }
+    table { border-collapse: collapse; width: 100%; margin-top: 0.4rem; }
+    td { padding: 0.35rem 0.6rem; vertical-align: middle; font-size: 0.88rem; }
+    td:first-child { width: 44px; }
+    .swatch {
+      display: inline-block;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      border: 1px solid rgba(0,0,0,0.15);
+      vertical-align: middle;
+    }
+    .swatch.border { border-radius: 4px; }
+    .edge-line {
+      display: inline-block;
+      width: 44px;
+      height: 4px;
+      vertical-align: middle;
+      border-radius: 2px;
+    }
+    .edge-dashed {
+      display: inline-block;
+      width: 44px;
+      height: 0;
+      border-top: 3px dashed;
+      vertical-align: middle;
+    }
+    .hex { font-family: monospace; color: #888; font-size: 0.8rem; }
+    .palette-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-top: 0.5rem;
+    }
+    .palette-item {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 0.82rem;
+      min-width: 160px;
+    }
+    tr:hover td { background: #fafafa; }
+  </style>
+</head>
+<body>
+
+<h1>Legenda — debug visualizations</h1>
+<p class="subtitle">
+  Pliki generowane gdy <code>settings.debug = True</code>. Węzły są rysowane przez PyVis na białym tle.
+</p>
+
+<!-- ────────────────────────────────────────────────── debug_pre_merge.html -->
+<div class="section">
+  <h2>
+    <span class="filename">debug_pre_merge.html</span>
+    &nbsp;&amp;&nbsp;
+    <span class="filename">debug_merge_env_N.html</span>
+  </h2>
+  <p style="font-size:0.88rem;color:#555;margin:0 0 0.8rem">
+    Widok przed mergem. Wszystkie środowiska (lub jedno środowisko N) razem z leftoverami.
+  </p>
+
+  <h3>Węzły</h3>
+  <table>
+    <tr>
+      <td><span class="swatch" style="background:#003b65"></span></td>
+      <td><strong>onto_1 — węzły interior</strong></td>
+      <td class="hex">#003b65</td>
+      <td>Wewnętrzne węzły ontologii 1 (granat).</td>
+    </tr>
+    <tr>
+      <td><span class="swatch" style="background:#ae6b00"></span></td>
+      <td><strong>onto_2 — węzły interior</strong></td>
+      <td class="hex">#ae6b00</td>
+      <td>Wewnętrzne węzły ontologii 2 (ciemny pomarańcz).</td>
+    </tr>
+    <tr>
+      <td><span class="swatch" style="background:#6aa1e0"></span></td>
+      <td><strong>border1 — granica onto_1</strong></td>
+      <td class="hex">#6aa1e0</td>
+      <td>Węzły na granicy środowiska, po stronie onto_1 (jasny niebieski).</td>
+    </tr>
+    <tr>
+      <td><span class="swatch" style="background:#ebb191"></span></td>
+      <td><strong>border2 — granica onto_2</strong></td>
+      <td class="hex">#ebb191</td>
+      <td>Węzły na granicy środowiska, po stronie onto_2 (jasny pomarańcz).</td>
+    </tr>
+    <tr>
+      <td><span class="swatch" style="background:#c62828"></span></td>
+      <td><strong>aligned — węzły wyrównane (seed)</strong></td>
+      <td class="hex">#c62828</td>
+      <td>Pary węzłów połączonych alignmentem — wyraźnie wyróżnione (czerwień).</td>
+    </tr>
+    <tr>
+      <td><span class="swatch" style="background:#cfd8dc"></span></td>
+      <td><strong>onto_1 leftover</strong></td>
+      <td class="hex">#cfd8dc</td>
+      <td>Węzły ontologii 1 które nie trafiły do żadnego środowiska (jasny niebieskoszary).</td>
+    </tr>
+    <tr>
+      <td><span class="swatch" style="background:#455a64"></span></td>
+      <td><strong>onto_2 leftover</strong></td>
+      <td class="hex">#455a64</td>
+      <td>Węzły ontologii 2 które nie trafiły do żadnego środowiska (ciemny łupek).</td>
+    </tr>
+  </table>
+
+  <h3>Krawędzie</h3>
+  <table>
+    <tr>
+      <td><span class="edge-line" style="background:#aaaaaa"></span></td>
+      <td><strong>Zwykła krawędź</strong></td>
+      <td class="hex">#aaaaaa</td>
+      <td>Trójka RDF z onto_1 lub onto_2.</td>
+    </tr>
+    <tr>
+      <td><span class="edge-dashed" style="border-color:#6a1b9a"></span></td>
+      <td><strong>Krawędź alignmentu (przerywana)</strong></td>
+      <td class="hex">#6a1b9a</td>
+      <td>Łączy parę wyrównanych węzłów; etykieta = miara podobieństwa (fiolet).</td>
+    </tr>
+    <tr>
+      <td><span class="edge-dashed" style="border-color:#ff1493"></span></td>
+      <td><strong>Usunięta krawędź — diff (przerywana)</strong></td>
+      <td class="hex">#ff1493</td>
+      <td>Krawędź obecna pre-merge, nieobecna post-merge (różowy). Widoczna gdy przekazano <code>merged_graphs</code>.</td>
+    </tr>
+  </table>
+</div>
+
+<!-- ─────────────────────────────────────────────── debug_post_merge.html -->
+<div class="section">
+  <h2>
+    <span class="filename">debug_post_merge.html</span>
+    &nbsp;&amp;&nbsp;
+    <span class="filename">debug_merged_env_N.html</span>
+  </h2>
+  <p style="font-size:0.88rem;color:#555;margin:0 0 0.8rem">
+    Widok po mergem. Każde scalone środowisko dostaje unikalny kolor z rotującej palety 12 kolorów.
+  </p>
+
+  <h3>Węzły — środowiska po mergu</h3>
+  <p style="font-size:0.85rem;color:#555;margin:0 0 0.5rem">
+    Kolor węzła = kolor środowiska do którego należy (przypisanie po kolei: env 0 → #1, env 1 → #2, …).
+  </p>
+  <div class="palette-grid">
+    <div class="palette-item"><span class="swatch" style="background:#e53935"></span> env 0 — red <span class="hex">#e53935</span></div>
+    <div class="palette-item"><span class="swatch" style="background:#8e24aa"></span> env 1 — purple <span class="hex">#8e24aa</span></div>
+    <div class="palette-item"><span class="swatch" style="background:#1e88e5"></span> env 2 — blue <span class="hex">#1e88e5</span></div>
+    <div class="palette-item"><span class="swatch" style="background:#00897b"></span> env 3 — teal <span class="hex">#00897b</span></div>
+    <div class="palette-item"><span class="swatch" style="background:#f4511e"></span> env 4 — deep orange <span class="hex">#f4511e</span></div>
+    <div class="palette-item"><span class="swatch" style="background:#3949ab"></span> env 5 — indigo <span class="hex">#3949ab</span></div>
+    <div class="palette-item"><span class="swatch" style="background:#00acc1"></span> env 6 — cyan <span class="hex">#00acc1</span></div>
+    <div class="palette-item"><span class="swatch" style="background:#43a047"></span> env 7 — green <span class="hex">#43a047</span></div>
+    <div class="palette-item"><span class="swatch" style="background:#fdd835;border:1px solid #bbb"></span> env 8 — yellow <span class="hex">#fdd835</span></div>
+    <div class="palette-item"><span class="swatch" style="background:#fb8c00"></span> env 9 — amber <span class="hex">#fb8c00</span></div>
+    <div class="palette-item"><span class="swatch" style="background:#6d4c41"></span> env 10 — brown <span class="hex">#6d4c41</span></div>
+    <div class="palette-item"><span class="swatch" style="background:#f06292"></span> env 11 — pink <span class="hex">#f06292</span></div>
+  </div>
+  <p style="font-size:0.82rem;color:#888;margin:0.5rem 0 0">
+    Paleta rotuje — env 12 ma ten sam kolor co env 0, env 13 co env 1, itd.
+  </p>
+
+  <h3>Węzły specjalne</h3>
+  <table>
+    <tr>
+      <td><span class="swatch" style="background:#000000"></span></td>
+      <td><strong>węzeł border (czarny)</strong></td>
+      <td class="hex">#000000</td>
+      <td>Węzeł który był na granicy (border1 lub border2) w środowisku pre-merge.</td>
+    </tr>
+    <tr>
+      <td><span class="swatch" style="background:#cfd8dc"></span></td>
+      <td><strong>onto_1 leftover</strong></td>
+      <td class="hex">#cfd8dc</td>
+      <td>Węzły ontologii 1 poza środowiskami (jasny niebieskoszary).</td>
+    </tr>
+    <tr>
+      <td><span class="swatch" style="background:#455a64"></span></td>
+      <td><strong>onto_2 leftover</strong></td>
+      <td class="hex">#455a64</td>
+      <td>Węzły ontologii 2 poza środowiskami (ciemny łupek).</td>
+    </tr>
+  </table>
+
+  <h3>Krawędzie</h3>
+  <table>
+    <tr>
+      <td><span class="edge-line" style="background:#aaaaaa"></span></td>
+      <td><strong>Zwykła krawędź</strong></td>
+      <td class="hex">#aaaaaa</td>
+      <td>Trójka RDF w scalonym grafie.</td>
+    </tr>
+    <tr>
+      <td><span class="edge-dashed" style="border-color:#ff1493"></span></td>
+      <td><strong>Dodana krawędź — diff (przerywana)</strong></td>
+      <td class="hex">#ff1493</td>
+      <td>Krawędź nieobecna pre-merge, pojawia się po mergu (różowy). Widoczna gdy przekazano <code>merge_environments</code>.</td>
+    </tr>
+  </table>
+</div>
+
+<!-- ───────────────────────────────────────── onto_1/2_leftover.html -->
+<div class="section">
+  <h2>
+    <span class="filename">onto_1_leftover.html</span>
+    &nbsp;&amp;&nbsp;
+    <span class="filename">onto_2_leftover.html</span>
+  </h2>
+  <p style="font-size:0.88rem;color:#555;margin:0 0 0.8rem">
+    Izolowane widoki leftoverów — węzły które nie trafiły do żadnego środowiska merge.
+  </p>
+  <table>
+    <tr>
+      <td><span class="swatch" style="background:#cfd8dc"></span></td>
+      <td><strong>onto_1 leftover</strong></td>
+      <td class="hex">#cfd8dc</td>
+      <td>Jasny niebieskoszary.</td>
+    </tr>
+    <tr>
+      <td><span class="swatch" style="background:#455a64"></span></td>
+      <td><strong>onto_2 leftover</strong></td>
+      <td class="hex">#455a64</td>
+      <td>Ciemny łupek.</td>
+    </tr>
+    <tr>
+      <td><span class="edge-line" style="background:#aaaaaa"></span></td>
+      <td><strong>Krawędź</strong></td>
+      <td class="hex">#aaaaaa</td>
+      <td>Trójki RDF wewnątrz leftovers.</td>
+    </tr>
+  </table>
+</div>
+
+<!-- ────────────────────────────────────────────────── env_diff_N.txt -->
+<div class="section">
+  <h2><span class="filename">env_diff_N.txt</span></h2>
+  <p style="font-size:0.88rem;color:#555;margin:0 0 0.8rem">
+    Plik tekstowy (nie HTML). Diff trójek dla środowiska N, porównanie po local name (bez prefiksów URI).
+    Blank nodes i trójki bez URIRef po obu stronach są pomijane.
+  </p>
+  <table>
+    <tr>
+      <td style="width:auto;font-family:monospace;font-size:0.85rem;background:#eee;padding:0.3rem 0.7rem;border-radius:4px;">[Deleted]</td>
+      <td>Trójki obecne w onto_1 lub onto_2 (pre), nieobecne po mergu.</td>
+    </tr>
+    <tr>
+      <td style="width:auto;font-family:monospace;font-size:0.85rem;background:#eee;padding:0.3rem 0.7rem;border-radius:4px;">[Added]</td>
+      <td>Trójki pojawia się w scalonym grafie, nieobecne w obu ontologiach wejściowych.</td>
+    </tr>
+  </table>
+</div>
+
+</body>
+</html>
