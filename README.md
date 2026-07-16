@@ -1,50 +1,58 @@
 # LLM-Onto-Merger
 
-Framework do **fizycznego scalania dwóch ontologii OWL** z użyciem dużego modelu
-językowego jako źródła wiedzy zewnętrznej. Pipeline dzieli ontologie na małe,
-kontekstowo spójne *środowiska scalania*, wysyła każde do LLM (przez protokół
-OpenAI Chat Completions — Ollama / vLLM / OpenRouter), a wyniki składa w jedną
-ontologię. Referencyjna implementacja do artykułu o ewaluacji scalania ontologii.
+A framework for the **physical merging of two OWL ontologies** using a large
+language model as the source of external knowledge. The pipeline splits the
+ontologies into small, contextually coherent *merge environments*, sends each to
+an LLM (via the OpenAI Chat Completions protocol — Ollama / vLLM / OpenRouter),
+and reassembles the results into a single ontology. Reference implementation for
+the accompanying paper on ontology-merging evaluation.
 
-## Instalacja
+## Installation
 
 ```bash
 uv sync
-cp .env.example .env      # następnie ustaw backend LLM — patrz docs/backends.md
+cp .env.example .env      # then configure the LLM backend — see docs/backends.md
 ```
 
-## Szybki start
+## Quick start
 
 ```bash
 uv run llm-onto-merger --base base.owl --candidate candidate.owl --output out/
 ```
 
-Opcje CLI: `--alignment-tool` (domyślnie `aml`), `--output`, `--max-env-chars`,
-`--parallel-llm-request-count`, `--model` (przełącza na OpenRouter), `--run-nonce`.
-Pełnia: `uv run llm-onto-merger --help`.
+CLI options: `--alignment-tool` (default `aml`), `--output`, `--max-env-chars`,
+`--parallel-llm-request-count`, `--model` (switches to OpenRouter), `--run-nonce`.
+Full list: `uv run llm-onto-merger --help`.
 
-## Co powstaje
+## What gets produced
 
-W katalogu `--output`: `merged_ontology.owl` (wynik), `applied_alignments.owl`
-(baseline), statystyki JSON, `insights.*`, oraz — przy `DEBUG=1` — wizualizacje
-HTML i `env_diff_*.txt` (dokładne decyzje LLM). Osobny krok raportowy dokłada
-`report.html/.csv` i 7 wykresów jakości. **Pełna mapa „co gdzie trafia":
-[docs/outputs.md](docs/outputs.md).**
+In the `--output` directory: `merged_ontology.owl` (result),
+`applied_alignments.owl` (baseline), JSON statistics, `insights.*`, and — when
+`DEBUG=1` — HTML visualizations and `env_diff_*.txt` (the exact LLM decisions). A
+separate reporting step adds `report.html/.csv` and 7 quality charts. **Full
+"what goes where" map: [docs/outputs.md](docs/outputs.md).**
 
-## Dokumentacja
+## Documentation
 
-| Dokument | O czym |
-|----------|--------|
-| [docs/workflow.md](docs/workflow.md) | Szczegółowy przepływ (11 etapów) i architektura pipeline'u |
-| [docs/outputs.md](docs/outputs.md) | **Co gdzie trafia** — każdy plik wyjściowy objaśniony |
-| [docs/backends.md](docs/backends.md) | Konfiguracja LLM (Ollama / vLLM / OpenRouter), `.env`, timeout |
-| [docs/reproduction.md](docs/reproduction.md) | Reprodukcja eksperymentów z artykułu (dane, baseline'y, scenariusze) |
-| [thirdparty/README.md](thirdparty/README.md) | Jak zdobyć narzędzia baseline (AML, LogMap, Boomer, CoMerger, OWLTools) |
+| Document | About |
+|----------|-------|
+| [docs/workflow.md](docs/workflow.md) | Detailed pipeline (11 stages) and architecture |
+| [docs/outputs.md](docs/outputs.md) | **What goes where** — every output file explained |
+| [docs/backends.md](docs/backends.md) | LLM configuration (Ollama / vLLM / OpenRouter), `.env`, timeout |
+| [docs/reproduction.md](docs/reproduction.md) | Reproducing the paper's experiments (data, baselines, scenarios) |
+| [thirdparty/README.md](thirdparty/README.md) | How to obtain the baseline tools (AML, LogMap, Boomer, CoMerger, OWLTools) |
 
-## Wymagania
+## Requirements
 
-- Python 3.11+ (testowane na 3.13)
-- Java 17+ (do uruchamiania AML)
-- Backend LLM zgodny z OpenAI Chat Completions — Ollama (domyślnie), vLLM lub OpenRouter (patrz [docs/backends.md](docs/backends.md))
-- Narzędzia baseline (AML, LogMap, Boomer, CoMerger, OWLTools) **nie są dołączone** do repozytorium — pobierz je zgodnie z [`thirdparty/README.md`](thirdparty/README.md). Do samego mergowania wystarczy AML w `thirdparty/aml/AgreementMakerLight.jar` (+ katalog `store/`).
-- Ontologie wejściowe (OAEI Conference/Anatomy, SWO, ACM CCS) — nie są dołączone; źródła w [docs/reproduction.md](docs/reproduction.md).
+- Python 3.11+ (tested on 3.13)
+- Java 17+ (to run AML)
+- An OpenAI Chat Completions–compatible LLM backend — Ollama (default), vLLM, or OpenRouter (see [docs/backends.md](docs/backends.md))
+- Baseline tools (AML, LogMap, Boomer, CoMerger, OWLTools) are **not bundled** — obtain them per [`thirdparty/README.md`](thirdparty/README.md). For merging alone you only need AML at `thirdparty/aml/AgreementMakerLight.jar` (+ the `store/` directory).
+- Input ontologies (OAEI Conference/Anatomy, SWO, ACM CCS) are not bundled; sources in [docs/reproduction.md](docs/reproduction.md).
+
+## License
+
+Released under the [MIT License](LICENSE) — permissive use with no warranty and
+no liability for the authors. The baseline tools referenced under `thirdparty/`
+are **not** distributed here and remain subject to their own licenses; obtain
+them from their upstream sources (see [thirdparty/README.md](thirdparty/README.md)).
