@@ -343,7 +343,7 @@ Entity('ab:Author', tuples=[...])
 [Border_2]:
 aa:Person
 
-[Alignments]:
+[Alignment]:
 Researcher ↔ Researcher (relation: =)
 ```
 
