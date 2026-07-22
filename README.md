@@ -29,7 +29,10 @@ Full list: `uv run llm-onto-merger --help`.
 In the `--output` directory: `merged_ontology.owl` (result),
 `applied_alignments.owl` (baseline), JSON statistics, `insights.*`, and — when
 `DEBUG=1` — HTML visualizations and `env_diff_*.txt` (the exact LLM decisions). A
-separate reporting step adds `report.html/.csv` and 7 quality charts. **Full
+separate reporting step adds `report.html/.csv` and 7 quality charts. The
+multi-turn analysis (`tests/article_analysis_*/analyze-all.sh`) additionally
+computes the per-turn LLM error/fallback rate from the run logs
+(`errors/errors.csv`, `errors/errors_summary.csv`). **Full
 "what goes where" map: [docs/outputs.md](docs/outputs.md).**
 
 ## Documentation

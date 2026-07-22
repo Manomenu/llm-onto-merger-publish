@@ -515,5 +515,14 @@ done
 uv run python3 plot_cost.py "${COST_INPUTS[@]}" \
     --pm-output "$DIM/cost_pm.csv" --jpg-output "$DIM/cost.jpg"
 
+# ═══════════════════════════════════════════════════════════════════════════
+# errors — per-turn LLM error/fallback rate, parsed from each run dir's
+# run.log (pure log parsing; never invokes merging, so it ignores --no-run).
+# Uses the requested TURNS (not CORE_TURNS): missing run.logs are warned
+# about and skipped, not fatal.
+# ═══════════════════════════════════════════════════════════════════════════
+echo; echo "--- errors ---"
+bash errors/analyze.sh "${TURNS[@]}"
+
 echo
 echo "=== Done. Combined median/min/max outputs under tests/article_analysis_deepseek/<dim>/ ==="

@@ -45,6 +45,10 @@ bash tests/article_analysis_gptoss/analyze-all.sh turn1 turn2 turn3 turn4 turn5
 ```
 Aggregates turns, computes median [min; max] per dimension, and generates summary
 charts. DeepSeek variant: `tests/article_analysis_deepseek/` (shared helpers).
+The same run also extracts the per-turn LLM error/fallback rate from each run
+dir's `run.log` into `errors/errors.csv` and `errors/errors_summary.csv`
+(also runnable standalone: `bash tests/article_analysis_gptoss/errors/analyze.sh
+turn1 … turn5` — pure log parsing, never re-runs any merging).
 
 ## Notes
 

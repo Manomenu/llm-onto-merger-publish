@@ -198,7 +198,7 @@ class MergeEnvironment:
             [Border_2]:
             {border2_str}
 
-            [Alignments]:
+            [Alignment]:
             {alignments_str}
         """
         return text, self._code_to_ns

@@ -913,22 +913,60 @@ def _compute_self_metrics(
         # original namespaces (e.g. merged#NCI_C12814 where NCI_C12814 ∈ onto1_locals),
         # we resolve to that primary source so intra-onto triples via merged entities
         # are counted correctly.
-        union_keys = {
-            _canon_key(p, _local(s), _local(p), _local(o))
+        # Alias/relabel-normalised union keys, shared by NIRC and NCRC so both
+        # measure novelty against the SAME baseline.  _norm_uri folds two kinds
+        # of identity change back onto the merged names: (a) entity-merge aliases
+        # (Y aligned to X → Y's local name maps to X's), so naive collapse of
+        # `Y subClassOf Z` into `merged#X subClassOf Z` matches the original union
+        # triple and is NOT counted as new; (b) OBO relabeling (NCI_C12345 →
+        # Hippocampus), so a relation that merely survived relabeling is not
+        # mistaken for newly introduced knowledge.  Only genuinely new edges
+        # introduced by the merge logic remain.
+        union_keys_norm = {
+            _canon_key(p, _norm_uri(s), _norm_uri(p), _norm_uri(o))
             for s, p, o in union
             if isinstance(s, URIRef) and isinstance(o, URIRef)
         }
+
+        # Raw (un-normalised) union triples by local name.  A relation whose raw
+        # local-name triple already appears verbatim in the union is present in a
+        # source ontology and therefore NOT new, even when alias/relabel
+        # normalisation of one endpoint desyncs its canonical key from the union's
+        # (e.g. AROM re-serialising SWO obsolescence axioms such as
+        # `X IAO_0100001 Y` or `X subClassOf ObsoleteClass`, which exist in the
+        # input SWO but whose normalised key no longer matches).
+        union_raw = {
+            (_local(s), _local(p), _local(o))
+            for s, p, o in union
+            if isinstance(s, URIRef) and isinstance(o, URIRef)
+        }
+
+        def _raw_key(s, p, o):
+            return (_local(s), _local(p), _local(o))
 
         def _is_both(u) -> bool:
             return isinstance(u, URIRef) and new_to_source.get(_local(u)) == "both"
 
         def _intra_source(u) -> str | None:
-            """Resolve entity to single source for NIRC: 'both' resolved by local-name membership."""
+            """Resolve entity to single source for NIRC.
+
+            Attribution priority MUST match _from_onto1/_from_onto2 (used by the
+            cross-ontology predicate) so NIRC and NCRC stay disjoint: a relabeled
+            entity living in a source's dominant namespace (e.g. human.owl#Cardiac_Valve,
+            absent from onto1_entities because the original IRI was an NCI code) would
+            otherwise fall through to the alias map and be mis-attributed, leaking a
+            genuinely cross-ontology triple into NIRC. 'both' is resolved by
+            local-name membership as before."""
             if not isinstance(u, URIRef):
                 return None
             if u in onto1_entities:
                 return "onto1"
             if u in onto2_entities:
+                return "onto2"
+            s = str(u)
+            if onto1_ns and s.startswith(onto1_ns) and not (onto2_ns and s.startswith(onto2_ns)):
+                return "onto1"
+            if onto2_ns and s.startswith(onto2_ns) and not (onto1_ns and s.startswith(onto1_ns)):
                 return "onto2"
             loc = _local(u)
             src = new_to_source.get(loc)
@@ -950,31 +988,23 @@ def _compute_self_metrics(
                 and not (_is_both(s) and _is_both(o))  # both↔both excluded (same as CORC rule)
                 and _intra_source(s) is not None
                 and _intra_source(s) == _intra_source(o)
-                and _canon_key(p, _local(s), _local(p), _local(o)) not in union_keys
+                and _canon_key(p, _local(s), _local(p), _local(o)) not in union_keys_norm
+                and _raw_key(s, p, o) not in union_raw
             )
         )
 
         triple_count_delta = float(len(g) - len(union))
 
         # NEW cross-ontology relations — triples (any predicate) that bridge
-        # ontologies AND are NOT derivable from an existing union triple via
-        # entity-merge relabeling.  We normalise union keys with old_to_new
-        # (Y aligned to X → Y's local name maps to X's) so that naive collapse
-        # of `Y subClassOf Z` into `merged#X subClassOf Z` matches the original
-        # union triple and is NOT counted as new.  Only genuinely new edges
-        # introduced by the merge logic (e.g. LLM-created cross-onto axioms)
-        # remain.
-        union_keys_norm = {
-            _canon_key(p, _norm_uri(s), _norm_uri(p), _norm_uri(o))
-            for s, p, o in union
-            if isinstance(s, URIRef) and isinstance(o, URIRef)
-        }
+        # ontologies AND are not derivable from a union triple via alias/relabel
+        # normalisation (union_keys_norm, built above and shared with NIRC).
         new_cross_rel = float(sum(
             1
             for s, p, o in g
             if isinstance(s, URIRef) and isinstance(o, URIRef)
             and _is_cross(s, o)
             and _canon_key(p, _local(s), _local(p), _local(o)) not in union_keys_norm
+            and _raw_key(s, p, o) not in union_raw
         ))
 
     else:

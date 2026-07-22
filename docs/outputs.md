@@ -84,6 +84,15 @@ per-dimension CSVs, reusing helpers from `tests/article_analysis_deepseek/`
 It requires the full dataset set (3 datasets × N turns × baselines) — this is a
 research run, not a smoke test. See [reproduction.md](reproduction.md).
 
+The run also computes the **LLM error/fallback rate** per dataset × turn
+(`errors/analyze.sh`, shared `error_rate_turns.py`): each run dir's `run.log` is
+parsed (pure log parsing — no merging is ever invoked) and failed environments
+(unparsable LLM response → deterministic fallback merge, empty merged graph,
+other per-env errors) are counted into `errors/errors.csv` (one row per
+scenario × dataset × turn) and `errors/errors_summary.csv` (median [min; max]
+across turns). Empty responses for environments with zero input triples are
+degenerate, not failures, and are reported separately.
+
 ---
 
 ## Which artifacts are "for inspection"?

@@ -548,5 +548,13 @@ for ds in "${OAEI_DATASETS[@]}"; do
   fi
 done
 
+# ═══════════════════════════════════════════════════════════════════════════
+# errors — per-turn LLM error/fallback rate, parsed from each run dir's
+# run.log (pure log parsing; never invokes merging, so it ignores --no-run).
+# Missing run.logs are warned about and skipped, not fatal.
+# ═══════════════════════════════════════════════════════════════════════════
+echo; echo "--- errors ---"
+bash errors/analyze.sh "${TURNS[@]}"
+
 echo
 echo "=== Done. Median/min/max outputs under tests/article_analysis_gptoss/<dim>/ ==="
