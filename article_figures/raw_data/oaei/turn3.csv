@@ -1,0 +1,15 @@
+method,dataset,reference_total,aml_total,rejected_correct,accepted_aml_fp
+AROM,confOf-ekaw,20,16,0,1
+CoMerger,confOf-ekaw,20,16,0,1
+Boomer,confOf-ekaw,20,16,1,1
+Proposed: gpt-oss,confOf-ekaw,20,16,4,0
+AROM,human-mouse,1516,1396,0,60
+CoMerger,human-mouse,1516,1396,0,60
+Boomer,human-mouse,1516,1396,27,59
+Proposed: gpt-oss,human-mouse,1516,1396,49,40
+AROM,swo-acm,30,43,,13
+Boomer,swo-acm,30,43,,5
+Proposed: gpt-oss,swo-acm,30,43,2,3
+Proposed: deepseek-v4-flash,confOf-ekaw,20,16,4,0
+Proposed: deepseek-v4-flash,human-mouse,1516,1396,67,38
+Proposed: deepseek-v4-flash,swo-acm,30,43,3,2

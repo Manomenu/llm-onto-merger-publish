@@ -117,13 +117,13 @@ _REGISTRY: dict[str, dict] = {
         "categories": ["Conciseness"],
         "target": "= 0",
         "interpretation": (
-            "Odsetek klas mających ≥2 nazwanych rodziców, których domknięcia "
-            "przechodnio-zwrotne (zbiory wszystkich przodków) zawierają wspólny "
-            "węzeł. Taka klasa jest osiągalna ze wspólnego nadrzędnika dwoma "
-            "różnymi ścieżkami rdfs:subClassOf — co najmniej jedna z tych "
-            "deklaracji jest wywodliwa z pozostałych przez przechodniość "
-            "subsumpcji. Znormalizowane przez |C| → wartość w [0,1] "
-            "porównywalna między datasetami. Target = 0."
+            "Odsetek klas z asertowaną krawędzią rdfs:subClassOf wywodliwą "
+            "z pozostałych asercji przez przechodniość subsumpcji: c ma rodziców "
+            "p1 ≠ p2, przy czym p2 jest przodkiem p1 (istnieje ścieżka p1 →* p2 "
+            "omijająca c). Diament — nieporównywalni rodzice o jedynie wspólnym "
+            "przodku — NIE jest liczony (legalne wielodziedziczenie). "
+            "Znormalizowane przez |C| → wartość w [0,1] porównywalna między "
+            "datasetami. Target = 0."
         ),
     },
     "ALC": {
@@ -477,14 +477,16 @@ def _connectivity_ratio(g: Graph) -> float:
 
 
 def _structural_redundancy(g: Graph) -> float:
-    """Fraction of classes for which two rdfs:subClassOf paths reach a common ancestor.
+    """Fraction of classes with an asserted rdfs:subClassOf edge derivable from the rest.
 
-    A class c is structurally redundant iff it has 2+ named parents p1, p2 such that
-    Anc*(p1) ∩ Anc*(p2) ≠ ∅ (transitive-reflexive ancestor closures share at least
-    one node).  Such a class is mounted in the taxonomy via two paths that converge
-    above — at least one rdfs:subClassOf assertion is derivable from the others via
-    subsumption transitivity.  Normalised by |C| → ratio in [0,1] comparable across
-    datasets.
+    A class c is structurally redundant iff it has two distinct named parents p1, p2
+    such that p2 ∈ Anc(p1) — i.e. there is an asserted subClassOf chain p1 →* p2, so
+    the asserted edge c ⊑ p2 follows from c ⊑ p1 by subsumption transitivity
+    (redundancy proper, sensu Grimm & Wissmann 2011).  A diamond — incomparable
+    parents that merely share a common ancestor — is NOT counted: that is legitimate
+    multiple inheritance.  Justification chains passing through c itself (possible
+    only on an is-a cycle) are rejected via a local re-check that skips c.
+    Normalised by |C| → ratio in [0,1] comparable across datasets.
     """
     cls = _classes(g)
     if not cls:
@@ -514,17 +516,39 @@ def _structural_redundancy(g: Graph) -> float:
         _ancestor_cache[start] = result
         return result
 
+    def reaches_avoiding(start: URIRef, target: URIRef, banned: URIRef) -> bool:
+        """True iff an asserted subClassOf chain start →* target avoids `banned`."""
+        visited: set[URIRef] = set()
+        queue: deque[URIRef] = deque([start])
+        while queue:
+            n = queue.popleft()
+            if n == banned or n in visited:
+                continue
+            if n == target:
+                return True
+            visited.add(n)
+            queue.extend(parents.get(n, set()))
+        return False
+
     redundant = 0
     for c, ps in parents.items():
         if len(ps) < 2:
             continue
-        seen: set[URIRef] = set()
-        for p in ps:
-            anc = ancestors_inclusive(p)
-            if anc & seen:
-                redundant += 1
+        is_redundant = False
+        for p1 in ps:
+            anc = ancestors_inclusive(p1)
+            for p2 in ps:
+                if p2 is p1 or p2 == p1 or p2 not in anc:
+                    continue
+                # Fast path is sound unless the chain could run through c
+                # itself (c on a cycle above p1); then verify avoiding c.
+                if c not in anc or reaches_avoiding(p1, p2, banned=c):
+                    is_redundant = True
+                    break
+            if is_redundant:
                 break
-            seen |= anc
+        if is_redundant:
+            redundant += 1
 
     return round(redundant / len(cls), 6)
 

@@ -1,0 +1,7 @@
+model,scenario,input,dataset,turns_found,total_environments_median,real_failures_median,real_failures_min,real_failures_max,real_error_rate_pct_median,real_error_rate_pct_min,real_error_rate_pct_max
+deepseek-v4-flash,s5,aml,confOf-ekaw,5,16,0,0,2,0.0,0.0,12.5
+deepseek-v4-flash,s5,aml,human-mouse,5,1396,6,4,9,0.43,0.29,0.64
+deepseek-v4-flash,s5,aml,swo-acm,5,43,2,0,4,4.65,0.0,9.3
+deepseek-v4-flash,s6,ref,confOf-ekaw,5,20,1,0,1,5.0,0.0,5.0
+deepseek-v4-flash,s6,ref,human-mouse,5,1516,11,7,18,0.73,0.46,1.19
+deepseek-v4-flash,s6,ref,swo-acm,5,30,2,1,3,6.67,3.33,10.0
