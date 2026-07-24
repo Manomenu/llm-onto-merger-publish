@@ -1,0 +1,9 @@
+# NOTE: CoMerger: excluded from swo-acm.
+method,Syntactic Uniqueness Ratio,Syntactic Uniqueness Ratio_min,Syntactic Uniqueness Ratio_max,Structural Redundancy,Structural Redundancy_min,Structural Redundancy_max
+Naive Union,0.9279,0.9279,0.9279,0.0000,0.0000,0.0000
+Applied Alignments,0.9895,0.9895,0.9895,0.0421,0.0421,0.0421
+AROM,0.9895,0.9895,0.9895,0.0421,0.0421,0.0421
+CoMerger,0.9895,0.9895,0.9895,0.0421,0.0421,0.0421
+Boomer,0.9895,0.9895,0.9895,0.0421,0.0421,0.0421
+Proposed: gpt-oss,0.9691,0.9533,0.9806,0.1495,0.1293,0.2913
+Proposed: deepseek-v4-flash,0.9672,0.9510,0.9898,0.1176,0.0980,0.1939

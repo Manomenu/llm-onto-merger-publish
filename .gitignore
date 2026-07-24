@@ -17,6 +17,9 @@ C:\uploads*
 **/*.csv
 **/*.jpg
 
+# Published article artifacts: figures and raw/aggregated data must be tracked.
+!article_figures/**
+
 tests/**outputs/
 tests/**/**outputs/
 **/artifacts/*

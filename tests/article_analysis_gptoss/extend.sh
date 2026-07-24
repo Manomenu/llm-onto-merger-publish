@@ -126,6 +126,7 @@ _cdc_clear() {
   echo
   echo "=== --cdc summary: baseline-cache dirs=$n_cache  per-label sidecars=$n_sidecar  report files=$n_report ==="
   [ "$dry" = "1" ] && echo "    (dry run — nothing was actually removed; unset CDC_DRY_RUN to apply)"
+  return 0
 }
 
 CDC=0

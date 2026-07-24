@@ -1,8 +1,10 @@
 # Article figures and source data
 
 This folder holds the result figures used in the article, the source data for
-the Knowledge Completeness (KC) chart, and the raw LLM error/fallback-rate
-tables (`errors_data/`).
+the Knowledge Completeness (KC) chart, the Conciseness aggregates
+(`conciseness_data/`), the raw LLM error/fallback-rate tables (`errors_data/`),
+and the raw per-turn measure reports the aggregates are computed from
+(`raw_data/`).
 
 ## Figures
 - `ccr_med.jpg` — Understandability (Comment Coverage Ratio)
@@ -53,6 +55,42 @@ python tests/article_analysis_deepseek/plot_grouped.py \
   --ylabel-for NIRC "New intra-onto relations (log)" \
   --log-for NCRC --log-for NIRC --bar-fmt "%.0f" --n-turns 5
 ```
+
+## How Structural Redundancy was computed (corrected)
+
+The Structural Redundancy (SR) measure in `tests/metrics_def.py` was tightened
+to count only redundancy proper: a class `c` is flagged iff it has two distinct
+named parents `p1`, `p2` with `p2` an ancestor of `p1` via a subClassOf chain
+avoiding `c`, so the asserted edge `c ⊑ p2` is entailed by the remaining axioms
+(transitivity). A diamond — incomparable parents that merely share a common
+ancestor — is legitimate multiple inheritance and is **not** counted (the
+earlier criterion counted it, over-approximating redundancy). All SR values in
+`conciseness_data/` and `raw_data/` were recomputed with the corrected measure
+from the archived merged-ontology artifacts; every other measure is unaffected
+(verified identical under `PYTHONHASHSEED=0`).
+
+## Conciseness data (`conciseness_data/`)
+
+One wide CSV per scenario in `combine_turns.py` format (median plus `_min`/
+`_max` across the five runs) for Syntactic Uniqueness Ratio and Structural
+Redundancy, all methods — the exact inputs behind `conciseness_med.jpg`.
+
+## Raw per-turn data (`raw_data/`)
+
+The unaggregated inputs from which every aggregate above (median [min; max])
+is computed, enabling independent verification of the article's numbers:
+
+- `raw_data/measures/{gptoss,deepseek}/turnN/m_i_raport_<dataset>.csv` — the
+  complete per-run measure report (all 14 technical measures, every compared
+  method plus the union input) for each of the five independent runs, computed
+  from that run's final OWL artifacts with `PYTHONHASHSEED=0`.
+- `raw_data/oaei/turnN.csv` — the per-run reference-alignment validation
+  (rejected correct correspondences, accepted AML false-positives) for every
+  method and both model variants, computed against each scenario's reference
+  alignment.
+
+Aggregating these per-turn files (median/min/max over turn1..turn5) reproduces
+the tables and figures in the article and in this folder.
 
 ## LLM error/fallback rate (`errors_data/`)
 

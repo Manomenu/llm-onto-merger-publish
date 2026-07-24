@@ -311,7 +311,7 @@ if [ ${#TIMEOUT_DS[@]} -gt 0 ]; then
   for ds in "${TIMEOUT_DS[@]}"; do
     echo "$ds: no CoMerger data, due to 3-minute timeout" >> "$ERRORS_FILE"
   done
-  export COMERGER_TIMEOUT_NOTE="CoMerger: no data (3-min timeout) for: ${TIMEOUT_DS[*]}."
+  export COMERGER_TIMEOUT_NOTE="CoMerger: excluded from ${TIMEOUT_DS[*]}."
   echo "  CoMerger timeout for: ${TIMEOUT_DS[*]}"
   echo "  → wrote $(pwd)/$ERRORS_FILE; aggregate charts/tables will be annotated."
 else

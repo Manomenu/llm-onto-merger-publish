@@ -1,0 +1,3 @@
+method,NCRC,NCRC_min,NCRC_max,NIRC,NIRC_min,NIRC_max
+Proposed: gpt-oss,20,14,84,167,163,264
+Proposed: deepseek-v4-flash,31,22,42,162,156,174

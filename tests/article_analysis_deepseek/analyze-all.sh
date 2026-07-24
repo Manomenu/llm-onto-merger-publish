@@ -196,7 +196,7 @@ for ds in "${CORE_DATASETS[@]}"; do
 done
 unset COMERGER_TIMEOUT_NOTE
 if [ ${#TIMEOUT_DS[@]} -gt 0 ]; then
-  export COMERGER_TIMEOUT_NOTE="CoMerger: no data (3-min timeout) for: ${TIMEOUT_DS[*]}."
+  export COMERGER_TIMEOUT_NOTE="CoMerger: excluded from ${TIMEOUT_DS[*]}."
   echo "  ${COMERGER_TIMEOUT_NOTE}"
 else
   echo "  none"
