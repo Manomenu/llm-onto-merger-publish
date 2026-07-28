@@ -7,22 +7,27 @@ and the raw per-turn measure reports the aggregates are computed from
 (`raw_data/`).
 
 ## Figures
-- `ccr_med.jpg` — Understandability (Comment Coverage Ratio)
-- `conciseness_med.jpg` — Conciseness (Structural Redundancy, Syntactic Uniqueness)
-- `hiq_med.jpg` — Hierarchy Integration Quality (ARC, depth, breadth)
-- `kc_med.jpg` — Knowledge Completeness (NCRC, NIRC)
-- `tpr_med.jpg` — Accuracy (semantic Triple Preservation Ratio)
+- `ccr_med.png` — Understandability (Comment Coverage Ratio)
+- `hiq_med.png` — Hierarchy Integration Quality (ARC, depth, breadth)
+- `kc_med.png` — Knowledge Completeness (NCRC, NIRC)
+- `tpr_med.png` — Accuracy (semantic Triple Preservation Ratio)
+- `conciseness_med.jpg` — Conciseness (Structural Redundancy, Syntactic Uniqueness); not used
+  in the article
+
+The four article figures are PNG (lossless, as they are line art with text) at 300 dpi, with a
+single shared legend above the panels. `hiq_med.png` omits the union input, which is the
+reference for the %-change it plots and therefore zero throughout.
 
 ## KC data (`kc_data/`)
 One wide CSV per scenario, in `combine_turns.py` format
 (`method,NCRC,NCRC_min,NCRC_max,NIRC,NIRC_min,NIRC_max`); medians in the bare
 columns, min/max across the five runs in the `_min`/`_max` columns. These are
 the exact inputs to `tests/article_analysis_deepseek/plot_grouped.py` that
-produced `kc_med.jpg`. The figure reports the proposed framework only (one bar
-group per model): the classical baselines have no external-knowledge source and
-introduce no knowledge-bearing relations (at most a handful of purely formal
-ones, e.g. `owl:Thing` subsumptions; $\leq 6$ NCRC, $\leq 1$ NIRC), so they are
-omitted from the chart and noted in the article text instead.
+produced `kc_med.png`. The figure reports the proposed framework only (one bar
+group per model): the reference methods score zero on both measures on
+confOf-ekaw and swo-acm (except AROM on swo-acm: 1 NCRC, 3 NIRC) and at most 6
+NCRC / 1 NIRC on human-mouse, values a logarithmic axis cannot render, so they
+are omitted from the chart and given in the article text instead.
 
 ## How NCRC/NIRC were computed (corrected)
 
@@ -50,10 +55,14 @@ python tests/article_analysis_deepseek/plot_grouped.py \
   --dataset confOf-ekaw kc_data/confOf-ekaw.csv \
   --dataset human-mouse kc_data/human-mouse.csv \
   --dataset swo-acm      kc_data/swo-acm.csv \
-  --output kc_med.jpg \
+  --output kc_med.png \
   --ylabel-for NCRC "New cross-onto relations (log)" \
   --ylabel-for NIRC "New intra-onto relations (log)" \
-  --log-for NCRC --log-for NIRC --bar-fmt "%.0f" --n-turns 5
+  --log-for NCRC --log-for NIRC --bar-fmt "%.0f" \
+  --drop-method "Applied Alignments" --drop-method AROM \
+  --drop-method CoMerger --drop-method Boomer \
+  --rename-method "Proposed: deepseek-v4-flash" "Proposed: DeepSeek" \
+  --legend-figure --panel-height 3.0 --dpi 300
 ```
 
 ## How Structural Redundancy was computed (corrected)
