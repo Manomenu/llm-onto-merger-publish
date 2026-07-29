@@ -44,6 +44,8 @@ computes the per-turn LLM error/fallback rate from the run logs
 | [docs/backends.md](docs/backends.md) | LLM configuration (Ollama / vLLM / OpenRouter), `.env`, timeout |
 | [docs/reproduction.md](docs/reproduction.md) | Reproducing the paper's experiments (data, baselines, scenarios) |
 | [thirdparty/README.md](thirdparty/README.md) | How to obtain the baseline tools (AML, LogMap, Boomer, CoMerger, OWLTools) |
+| [article_figures/README.md](article_figures/README.md) | The article's figures and the source data behind them |
+| [article_artifacts/kc_validation/README.md](article_artifacts/kc_validation/README.md) | What the relations counted by NCRC/NIRC actually are, and how many of them hold |
 
 ## Requirements
 
