@@ -88,6 +88,23 @@ def main() -> None:
                     metavar=("METRIC", "FMT"))
     ap.add_argument("--log-for", action="append", default=[])
     ap.add_argument("--n-turns", type=int, default=None)
+    ap.add_argument("--dpi", type=int, default=150,
+                    help="output resolution; 300 for print submissions")
+    ap.add_argument("--drop-method", action="append", default=[],
+                    help="method row to omit from the plot (repeatable); e.g. a reference "
+                         "series that is zero by construction")
+    ap.add_argument("--rename-method", action="append", default=[], nargs=2,
+                    metavar=("OLD", "NEW"),
+                    help="relabel a method on the x axis (repeatable); shorter labels need "
+                         "less rotation overhang and make the figure shorter")
+    ap.add_argument("--no-panel-title", action="store_true",
+                    help="omit the per-panel title (redundant with the y label on "
+                         "single-measure charts)")
+    ap.add_argument("--panel-height", type=float, default=3.6,
+                    help="height in inches of one panel row (default 3.6)")
+    ap.add_argument("--legend-figure", action="store_true",
+                    help="draw one shared legend above the panels instead of one per panel, "
+                         "so it cannot overlap the bars")
     ap.add_argument("--vertical", action="store_true",
                     help="stack subplots in one column (fits a single text "
                          "column in a double-column article)")
@@ -95,6 +112,8 @@ def main() -> None:
     ylabel_for = dict(args.ylabel_for)
     fmt_for = dict(args.bar_fmt_for)
     log_metrics = set(args.log_for)
+    dropped = set(args.drop_method)
+    renames = dict(args.rename_method)
 
     datasets = [lbl for lbl, _ in args.dataset]
     parsed = {lbl: _parse(Path(p)) for lbl, p in args.dataset}
@@ -116,6 +135,7 @@ def main() -> None:
                 methods_seen.append(m)
     methods = [m for m in _CANON if m in methods_seen] + \
               [m for m in methods_seen if m not in _CANON]
+    methods = [m for m in methods if m not in dropped]
 
     def _get(lbl, method, metric_name):
         mts, meths, med, lo, hi = parsed[lbl]
@@ -127,7 +147,8 @@ def main() -> None:
     n = len(metrics)
     cols = 1 if args.vertical else (2 if n > 1 else 1)
     plot_rows = math.ceil(n / cols)
-    fig, axes = plt.subplots(plot_rows, cols, figsize=(6.0 * cols, 3.6 * plot_rows))
+    fig, axes = plt.subplots(plot_rows, cols,
+                             figsize=(6.0 * cols, args.panel_height * plot_rows))
     axes = axes.flatten() if hasattr(axes, "flatten") else [axes]
 
     n_ds = len(datasets)
@@ -170,14 +191,17 @@ def main() -> None:
                             textcoords="offset points", ha="center", va="bottom",
                             fontsize=6.5, rotation=90)
 
-        ax.set_title(_pretty(metric))
+        if not args.no_panel_title:
+            ax.set_title(_pretty(metric))
         default_y = args.ylabel if args.ylabel else _pretty(metric)
         ax.set_ylabel(ylabel_for.get(metric, default_y))
         ax.axhline(0, color="black", linewidth=0.6)
         ax.set_xticks(xbase)
-        ax.set_xticklabels(methods, rotation=30, ha="right")
+        ax.set_xticklabels([renames.get(m, m) for m in methods],
+                           rotation=30, ha="right")
         ax.grid(axis="y", alpha=0.3)
-        ax.legend(fontsize=7, title="dataset", framealpha=0.9)
+        if not args.legend_figure:
+            ax.legend(fontsize=7, title="dataset", framealpha=0.9)
 
         if metric in log_metrics:
             ax.set_yscale("symlog", linthresh=1)
@@ -198,6 +222,12 @@ def main() -> None:
     for j in range(n, len(axes)):
         axes[j].axis("off")
 
+    if args.legend_figure:
+        handles, labels = axes[0].get_legend_handles_labels()
+        fig.legend(handles, labels, loc="upper center", ncol=max(1, len(labels)),
+                   fontsize=8, frameon=False,
+                   bbox_to_anchor=(0.5, 0.955 if args.title or args.n_turns else 0.99))
+
     subtitle = args.title
     if args.n_turns is not None:
         tag = f"median (min–max) over {args.n_turns} runs, per dataset"
@@ -214,9 +244,9 @@ def main() -> None:
                  fontsize=8, color="#8a5000", wrap=True)
         bottom_rect = 0.05
 
-    top_rect = 0.94 if subtitle else 1.0
+    top_rect = (0.90 if args.legend_figure else 0.94) if subtitle else (0.94 if args.legend_figure else 1.0)
     plt.tight_layout(rect=(0, bottom_rect, 1, top_rect))
-    plt.savefig(args.output, dpi=150,
+    plt.savefig(args.output, dpi=args.dpi,
                 format="jpg" if args.output.suffix == ".jpg" else None)
     print(f"wrote {args.output}")
 
