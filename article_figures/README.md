@@ -8,15 +8,20 @@ and the raw per-turn measure reports the aggregates are computed from
 
 ## Figures
 - `ccr_med.png` — Understandability (Comment Coverage Ratio)
-- `hiq_med.png` — Hierarchy Integration Quality (ARC, depth, breadth)
-- `kc_med.png` — Knowledge Completeness (NCRC, NIRC)
 - `tpr_med.png` — Accuracy (semantic Triple Preservation Ratio)
+- `hiq_med.png` — Hierarchy Integration Quality (ARC, depth, breadth)
+- `kc_med.png` — Knowledge Completeness (NCRC, NIRC); **no longer used in the article**, whose
+  final version reports these values in the text instead — the chart plotted the framework
+  alone, since every reference method scores zero or near-zero and a logarithmic axis cannot
+  render that
 - `conciseness_med.jpg` — Conciseness (Structural Redundancy, Syntactic Uniqueness); not used
   in the article
 
-The four article figures are PNG (lossless, as they are line art with text) at 300 dpi, with a
+The article figures are PNG (lossless, as they are line art with text) at 300 dpi, with a
 single shared legend above the panels. `hiq_med.png` omits the union input, which is the
-reference for the %-change it plots and therefore zero throughout.
+reference for the %-change it plots and therefore zero throughout; its y axes are labelled
+`median %-change vs. union` rather than repeating the measure name in the panel title, since
+what is plotted is the change relative to the union and not the measure itself.
 
 ## KC data (`kc_data/`)
 One wide CSV per scenario, in `combine_turns.py` format
@@ -64,6 +69,30 @@ python tests/article_analysis_deepseek/plot_grouped.py \
   --rename-method "Proposed: deepseek-v4-flash" "Proposed: DeepSeek" \
   --legend-figure --panel-height 3.0 --dpi 300
 ```
+
+## HIQ data (`hiq_data/`)
+One wide CSV per scenario, in the same `combine_turns.py` format, holding the **%-change of
+each hierarchy-profile measure relative to the union input** (not the measure itself): medians
+in the bare columns, min/max across the five runs in the `_min`/`_max` columns. The union row is
+absent, being zero by construction. Regenerate the chart with:
+
+```
+python tests/article_analysis_deepseek/plot_grouped.py \
+  --dataset confOf-ekaw hiq_data/confOf-ekaw.csv \
+  --dataset human-mouse hiq_data/human-mouse.csv \
+  --dataset swo-acm     hiq_data/swo-acm.csv \
+  --output hiq_med.png \
+  --ylabel "median %-change vs. union" \
+  --log-for average_depth --log-for ARC --bar-fmt "%+.1f" \
+  --rename-method "Applied Alignments" "Applied Align." \
+  --rename-method "Proposed: deepseek-v4-flash" "Proposed: DeepSeek" \
+  --legend-figure --panel-height 3.0 --dpi 300
+```
+
+`--ylabel` is required: without it `plot_grouped.py` falls back to the measure name, which both
+repeats the panel title and misstates the axis, since the plotted quantity is a percentage
+change and not the measure. `average_depth` and `ARC` use a symmetric log axis because their
+%-changes span three orders of magnitude across datasets.
 
 ## How Structural Redundancy was computed (corrected)
 
