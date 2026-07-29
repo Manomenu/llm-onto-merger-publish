@@ -42,7 +42,6 @@ from metrics_def import (  # noqa: E402
     _fmt,
     _fmt_applied,
     _load_graph,
-    _reasoner_check,
 )
 
 # ── Per-scenario computation ───────────────────────────────────────────────────
@@ -81,9 +80,9 @@ def _compute_scenario(
     comerger = _load_graph(str(comerger_path)) if comerger_path.exists() else None
     arom_provenance: dict[str, dict[str, str]] | None = None
     if arom is not None and arom_stats_path.exists():
-        arom_provenance = json.loads(
-            arom_stats_path.read_text(encoding="utf-8")
-        ).get("code_provenance")
+        arom_provenance = json.loads(arom_stats_path.read_text(encoding="utf-8")).get(
+            "code_provenance"
+        )
 
     applied_stats_path = out_dir / "applied_stats.json"
     applied_provenance: dict[str, dict[str, str]] | None = None
@@ -137,26 +136,37 @@ def _compute_scenario(
             applied_count_by_graph["merged_ontology"] = llm_applied_count
     if comerger_stats_path.exists() and "comerger_ontology" in graphs:
         cstats = json.loads(comerger_stats_path.read_text(encoding="utf-8"))
-        applied_count_by_graph["comerger_ontology"] = int(cstats.get("applied_equiv_total", 0))
+        applied_count_by_graph["comerger_ontology"] = int(
+            cstats.get("applied_equiv_total", 0)
+        )
     if boomer_stats_path.exists() and "boomer_ontology" in graphs:
         bstats = json.loads(boomer_stats_path.read_text(encoding="utf-8"))
-        applied_count_by_graph["boomer_ontology"] = int(bstats.get("accepted_equiv_count", 0))
+        applied_count_by_graph["boomer_ontology"] = int(
+            bstats.get("accepted_equiv_count", 0)
+        )
 
     metrics: dict[str, dict[str, float | None]] = {}
     for name, g in graphs.items():
         print(f"  computing metrics: {name} ({len(g)} triples) …", flush=True)
         union_arg = None if name == "union_input" else union
         prov = (
-            arom_provenance if name == "arom_ontology"
-            else applied_provenance if name == "applied_alignments"
-            else boomer_provenance if name == "boomer_ontology"
+            arom_provenance
+            if name == "arom_ontology"
+            else applied_provenance
+            if name == "applied_alignments"
+            else boomer_provenance
+            if name == "boomer_ontology"
             else None
         )
         rmap = relabeling_map if name == "merged_ontology" else None
         aac = applied_count_by_graph.get(name)
         metrics[name] = _compute_self_metrics(
-            g, onto1_entities, onto2_entities, union_arg,
-            arom_provenance=prov, relabeling_map=rmap,
+            g,
+            onto1_entities,
+            onto2_entities,
+            union_arg,
+            arom_provenance=prov,
+            relabeling_map=rmap,
             applied_alignments_count=aac,
         )
         metrics[name]["unsatisfiable_classes"] = None  # HermiT disabled
@@ -189,7 +199,10 @@ def _compute_scenario(
                 )
             else:
                 from rdflib.namespace import OWL as _OWL
-                equiv_count = sum(1 for _ in comerger.triples((None, _OWL.equivalentClass, None)))
+
+                equiv_count = sum(
+                    1 for _ in comerger.triples((None, _OWL.equivalentClass, None))
+                )
                 metrics["comerger_ontology"]["applied_alignments"] = float(equiv_count)
 
         if applied is not None and rejected:
@@ -328,19 +341,17 @@ def _render_metrics_table(scenario: dict) -> str:
         m_val = metrics.get("merged_ontology", {}).get(metric_name)
         a_val = (
             metrics.get("applied_alignments", {}).get(metric_name)
-            if has_applied else None
+            if has_applied
+            else None
         )
         b_val = (
-            metrics.get("boomer_ontology", {}).get(metric_name)
-            if has_boomer else None
+            metrics.get("boomer_ontology", {}).get(metric_name) if has_boomer else None
         )
-        ar_val = (
-            metrics.get("arom_ontology", {}).get(metric_name)
-            if has_arom else None
-        )
+        ar_val = metrics.get("arom_ontology", {}).get(metric_name) if has_arom else None
         c_val = (
             metrics.get("comerger_ontology", {}).get(metric_name)
-            if has_comerger else None
+            if has_comerger
+            else None
         )
         if all(v is None for v in (u_val, m_val, a_val, b_val, ar_val, c_val)):
             continue
@@ -366,13 +377,19 @@ def _render_metrics_table(scenario: dict) -> str:
             f'<td class="interp">{meta["interpretation"]}</td>'
             f"</tr>"
         )
-    applied_header  = f"<th>{_COLUMN_DISPLAY['applied_alignments']}</th>"  if has_applied else ""
-    arom_header     = f"<th>{_COLUMN_DISPLAY['arom_ontology']}</th>"       if has_arom else ""
-    comerger_header = f"<th>{_COLUMN_DISPLAY['comerger_ontology']}</th>"   if has_comerger else ""
-    boomer_header   = f"<th>{_COLUMN_DISPLAY['boomer_ontology']}</th>"     if has_boomer else ""
+    applied_header = (
+        f"<th>{_COLUMN_DISPLAY['applied_alignments']}</th>" if has_applied else ""
+    )
+    arom_header = f"<th>{_COLUMN_DISPLAY['arom_ontology']}</th>" if has_arom else ""
+    comerger_header = (
+        f"<th>{_COLUMN_DISPLAY['comerger_ontology']}</th>" if has_comerger else ""
+    )
+    boomer_header = (
+        f"<th>{_COLUMN_DISPLAY['boomer_ontology']}</th>" if has_boomer else ""
+    )
     return f"""<table>
   <thead><tr>
-    <th>Metric</th><th>{_COLUMN_DISPLAY['union_input']}</th>{applied_header}{arom_header}{comerger_header}{boomer_header}<th>{_COLUMN_DISPLAY['merged_ontology']}</th>
+    <th>Metric</th><th>{_COLUMN_DISPLAY["union_input"]}</th>{applied_header}{arom_header}{comerger_header}{boomer_header}<th>{_COLUMN_DISPLAY["merged_ontology"]}</th>
     <th>Target</th><th>Source</th><th>Categories</th><th>Interpretation</th>
   </tr></thead>
   <tbody>
@@ -484,8 +501,7 @@ def _scenario_metrics_block(s: dict) -> str:
     arom_mark = "✓" if s["has_arom"] else "✗"
     comerger_timeout = s.get("comerger_timeout", False)
     comerger_mark = (
-        "⏱ timeout (3 min)" if comerger_timeout
-        else "✓" if s["has_comerger"] else "✗"
+        "⏱ timeout (3 min)" if comerger_timeout else "✓" if s["has_comerger"] else "✗"
     )
     boomer_mark = "✓" if s["has_boomer"] else "✗"
     align_label = _align_stats_label(s["alignment_stats"])
@@ -497,7 +513,8 @@ def _scenario_metrics_block(s: dict) -> str:
         "⏱ <strong>CoMerger:</strong> przekroczono limit 3&nbsp;min — kolumna CoMerger "
         "pominięta (brak danych)."
         "</div>"
-        if comerger_timeout else ""
+        if comerger_timeout
+        else ""
     )
     return (
         f'<div class="scenario-section"><h3>Scenariusz: <code>{s["label"]}</code></h3>'
@@ -572,7 +589,7 @@ def _build_html(scenarios: list[dict], inputs_dir: Path) -> str:
 <h2>2. Insights per scenariusz</h2>
 {sec2}
 
-<h2>3. Porównanie <code>{_COLUMN_DISPLAY['merged_ontology']}</code> — wszystkie scenariusze</h2>
+<h2>3. Porównanie <code>{_COLUMN_DISPLAY["merged_ontology"]}</code> — wszystkie scenariusze</h2>
 {sec3}
 
 {sec4_html}
@@ -594,8 +611,10 @@ def _build_csv_rows(scenarios: list[dict]) -> list[list[str]]:
     for s in scenarios:
         if s.get("comerger_timeout"):
             rows.append(
-                [f"# NOTE: CoMerger timed out (3-min limit) for scenario "
-                 f"'{s['label']}' — comerger_ontology column absent (no data)."]
+                [
+                    f"# NOTE: CoMerger excluded from "
+                    f"'{s['label']}' — comerger_ontology column absent (no data)."
+                ]
             )
     rows.append(["# section: metrics (per scenario, per metric, per graph)"])
     rows.append(["section", "scenario", "metric", "graph", "value", "suspected"])
@@ -677,10 +696,14 @@ def _build_csv_rows(scenarios: list[dict]) -> list[list[str]]:
 # _REGISTRY[m]["categories"] which sometimes lists two).  Charts are grouped
 # by these keys: 7 files per scenario run, one per category.
 _CATEGORY_TO_METRICS: dict[str, list[str]] = {
-    "Structural Coherence":          ["cycle_count"],
+    "Structural Coherence": ["cycle_count"],
     "Hierarchy Integration Quality": [
-        "ARC", "connectivity_ratio", "average_depth",
-        "max_depth", "average_breadth", "max_breadth",
+        "ARC",
+        "connectivity_ratio",
+        "average_depth",
+        "max_depth",
+        "average_breadth",
+        "max_breadth",
     ],
     "Knowledge Completeness": [
         "cross_onto_relations_count",
@@ -689,53 +712,60 @@ _CATEGORY_TO_METRICS: dict[str, list[str]] = {
         "cross_onto_subclassof_count",
         "triple_count_delta",
     ],
-    "Conciseness":         ["syntactic_uniqueness_ratio", "structural_redundancy"],
-    "Accuracy":            ["triple_preservation_ratio"],
-    "Domain Coherence":    ["applied_alignments", "multi_domain_range_count"],
-    "Understandability":   ["annotation_coverage_ratio"],
+    "Conciseness": ["syntactic_uniqueness_ratio", "structural_redundancy"],
+    "Accuracy": ["triple_preservation_ratio"],
+    "Domain Coherence": ["applied_alignments", "multi_domain_range_count"],
+    "Understandability": ["annotation_coverage_ratio"],
 }
 _CATEGORY_SLUG: dict[str, str] = {
-    "Structural Coherence":          "structural_coherence",
+    "Structural Coherence": "structural_coherence",
     "Hierarchy Integration Quality": "hierarchy_integration_quality",
-    "Knowledge Completeness":        "knowledge_completeness",
-    "Conciseness":                   "conciseness",
-    "Accuracy":                      "accuracy",
-    "Domain Coherence":              "domain_coherence",
-    "Understandability":             "understandability",
+    "Knowledge Completeness": "knowledge_completeness",
+    "Conciseness": "conciseness",
+    "Accuracy": "accuracy",
+    "Domain Coherence": "domain_coherence",
+    "Understandability": "understandability",
 }
 # Color per method.  "Our Solution" multi-config variants get green shades.
 _METHOD_COLORS: dict[str, str] = {
-    "Naive Union":        "#7f8c8d",
+    "Naive Union": "#7f8c8d",
     "Applied Alignments": "#bdc3c7",
-    "AROM":               "#3498db",
-    "CoMerger":           "#9b59b6",
-    "Boomer":             "#e67e22",
-    "Our Solution":       "#27ae60",
+    "AROM": "#3498db",
+    "CoMerger": "#9b59b6",
+    "Boomer": "#e67e22",
+    "Our Solution": "#27ae60",
 }
-_OUR_SOLUTION_PALETTE = ["#27ae60", "#1e8449", "#52be80", "#16a085", "#0e6655", "#82e0aa"]
+_OUR_SOLUTION_PALETTE = [
+    "#27ae60",
+    "#1e8449",
+    "#52be80",
+    "#16a085",
+    "#0e6655",
+    "#82e0aa",
+]
 
 # Abbreviated / cleaned display names for chart subplot titles.
 # Internal metric keys are unchanged everywhere else (registry, CSV, HTML tables).
 _METRIC_DISPLAY: dict[str, str] = {
-    "annotation_coverage_ratio":     "ACR",
-    "comment_coverage_ratio":        "CCR",
-    "applied_alignments":            "Applied Alignments",
-    "multi_domain_range_count":      "Multi D/R",
+    "annotation_coverage_ratio": "ACR",
+    "comment_coverage_ratio": "CCR",
+    "applied_alignments": "Applied Alignments",
+    "multi_domain_range_count": "Multi D/R",
     "multi_domain_range_change_per_alignment": "Multi D/R Change per Alignment",
-    "structural_redundancy":         "Structural Redundancy",
-    "connectivity_ratio":             "CR",
-    "triple_preservation_ratio":      "TPR",
-    "cross_onto_relations_count":     "CORC",
-    "corc_per_applied_alignment":     "CORC per Applied Alignment",
+    "structural_redundancy": "Structural Redundancy",
+    "connectivity_ratio": "CR",
+    "triple_preservation_ratio": "TPR",
+    "cross_onto_relations_count": "CORC",
+    "corc_per_applied_alignment": "CORC per Applied Alignment",
     "new_intra_onto_relations_count": "NIRC",
-    "cross_onto_subclassof_count":    "COSC",
+    "cross_onto_subclassof_count": "COSC",
     "new_cross_onto_relations_count": "NCRC",
-    "triple_count_delta":             "Triples Count Change",
-    "cycle_count":                    "Cycle Count",
-    "average_depth":                  "Average Depth",
-    "max_depth":                      "Max Depth",
-    "average_breadth":                "Average Breadth",
-    "max_breadth":                    "Max Breadth",
+    "triple_count_delta": "Triples Count Change",
+    "cycle_count": "Cycle Count",
+    "average_depth": "Average Depth",
+    "max_depth": "Max Depth",
+    "average_breadth": "Average Breadth",
+    "max_breadth": "Max Breadth",
 }
 
 
@@ -753,7 +783,9 @@ def _should_use_log_scale(values: list[float]) -> bool:
     return max(pos) / min(pos) > 20
 
 
-def _render_category_charts(scenarios: list[dict], out_dir: Path, file_prefix: str) -> list[Path]:
+def _render_category_charts(
+    scenarios: list[dict], out_dir: Path, file_prefix: str
+) -> list[Path]:
     """Generate cross-scenario bar-chart JPGs grouped by quality category.
 
     For each of the 7 categories, emit one JPG file.  Subplots = metrics in
@@ -768,7 +800,9 @@ def _render_category_charts(scenarios: list[dict], out_dir: Path, file_prefix: s
     Returns list of written paths.
     """
     import math
+
     import matplotlib
+
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
@@ -781,18 +815,30 @@ def _render_category_charts(scenarios: list[dict], out_dir: Path, file_prefix: s
     # Build baseline methods list; colors keyed by display name for consistency.
     methods: list[tuple[str, str, str]] = []  # (display_label, color, graph_key)
     for graph_key, ok in [
-        ("union_input",        "union_input" in bmetrics),
-        ("applied_alignments", bool(baseline.get("has_applied")) and "applied_alignments" in bmetrics),
-        ("arom_ontology",      bool(baseline.get("has_arom")) and "arom_ontology" in bmetrics),
-        ("comerger_ontology",  bool(baseline.get("has_comerger")) and "comerger_ontology" in bmetrics),
-        ("boomer_ontology",    bool(baseline.get("has_boomer")) and "boomer_ontology" in bmetrics),
+        ("union_input", "union_input" in bmetrics),
+        (
+            "applied_alignments",
+            bool(baseline.get("has_applied")) and "applied_alignments" in bmetrics,
+        ),
+        (
+            "arom_ontology",
+            bool(baseline.get("has_arom")) and "arom_ontology" in bmetrics,
+        ),
+        (
+            "comerger_ontology",
+            bool(baseline.get("has_comerger")) and "comerger_ontology" in bmetrics,
+        ),
+        (
+            "boomer_ontology",
+            bool(baseline.get("has_boomer")) and "boomer_ontology" in bmetrics,
+        ),
     ]:
         if ok:
             disp = _COLUMN_DISPLAY[graph_key]
             methods.append((disp, _METHOD_COLORS[disp], graph_key))
 
-    our_label = (
-        lambda s: _COLUMN_DISPLAY["merged_ontology"]
+    our_label = lambda s: (
+        _COLUMN_DISPLAY["merged_ontology"]
         if len(scenarios) == 1
         else f"{_COLUMN_DISPLAY['merged_ontology']} ({s['label']})"
     )
@@ -807,8 +853,12 @@ def _render_category_charts(scenarios: list[dict], out_dir: Path, file_prefix: s
 
     for category, category_metrics in _CATEGORY_TO_METRICS.items():
         present_metrics = [
-            m for m in category_metrics
-            if any(s["metrics"].get("merged_ontology", {}).get(m) is not None for s in scenarios)
+            m
+            for m in category_metrics
+            if any(
+                s["metrics"].get("merged_ontology", {}).get(m) is not None
+                for s in scenarios
+            )
         ]
         if not present_metrics:
             continue
@@ -817,14 +867,18 @@ def _render_category_charts(scenarios: list[dict], out_dir: Path, file_prefix: s
         is_kc = category == "Knowledge Completeness"
 
         # Domain Coherence & Knowledge Completeness: Naive Union excluded (no cross-onto info).
-        cat_methods = [t for t in methods if not ((is_dc or is_kc) and t[2] == "union_input")]
+        cat_methods = [
+            t for t in methods if not ((is_dc or is_kc) and t[2] == "union_input")
+        ]
         all_labels = [m[0] for m in cat_methods] + [o[1] for o in our_solutions]
         all_colors = [m[1] for m in cat_methods] + [o[2] for o in our_solutions]
 
         n = len(present_metrics)
         cols = 1 if n == 1 else 2
         rows = math.ceil(n / cols)
-        fig, axes = plt.subplots(rows, cols, figsize=(7.5 * cols, 4.5 * rows), squeeze=False)
+        fig, axes = plt.subplots(
+            rows, cols, figsize=(7.5 * cols, 4.5 * rows), squeeze=False
+        )
         fig.suptitle(category, fontsize=15, fontweight="bold")
 
         for idx, metric_name in enumerate(present_metrics):
@@ -862,13 +916,19 @@ def _render_category_charts(scenarios: list[dict], out_dir: Path, file_prefix: s
                     if key == "applied_alignments":
                         dc_labels.append(str(int(v)))
                     elif applied_ref and applied_ref > 0:
-                        dc_labels.append(f"{(v - applied_ref) / applied_ref * 100:+.0f}%")
+                        dc_labels.append(
+                            f"{(v - applied_ref) / applied_ref * 100:+.0f}%"
+                        )
                     else:
                         dc_labels.append(str(int(v)))
                 for s, _lbl, _clr in our_solutions:
-                    v = float(s["metrics"].get("merged_ontology", {}).get(metric_name) or 0)
+                    v = float(
+                        s["metrics"].get("merged_ontology", {}).get(metric_name) or 0
+                    )
                     if applied_ref and applied_ref > 0:
-                        dc_labels.append(f"{(v - applied_ref) / applied_ref * 100:+.0f}%")
+                        dc_labels.append(
+                            f"{(v - applied_ref) / applied_ref * 100:+.0f}%"
+                        )
                     else:
                         dc_labels.append(str(int(v)))
                 ax.bar_label(bars, labels=dc_labels, fontsize=8, padding=2)
@@ -887,7 +947,10 @@ def _render_category_charts(scenarios: list[dict], out_dir: Path, file_prefix: s
                     avg_ref = sum(ref_vals) / len(ref_vals)
                     val_fmt = ".3f" if _is_ratio_metric(metric_name) else ".0f"
                     ax.axhline(
-                        y=avg_ref, color="#e74c3c", linestyle="--", linewidth=1.5,
+                        y=avg_ref,
+                        color="#e74c3c",
+                        linestyle="--",
+                        linewidth=1.5,
                         alpha=0.85,
                         label=f"Avg(AROM, CoMerger, Boomer) = {avg_ref:{val_fmt}}",
                     )
@@ -896,9 +959,14 @@ def _render_category_charts(scenarios: list[dict], out_dir: Path, file_prefix: s
             target = _REGISTRY.get(metric_name, {}).get("target", "")
             if target:
                 ax.text(
-                    0.99, 0.97, f"target: {target}",
-                    transform=ax.transAxes, fontsize=8, color="#666",
-                    ha="right", va="top",
+                    0.99,
+                    0.97,
+                    f"target: {target}",
+                    transform=ax.transAxes,
+                    fontsize=8,
+                    color="#666",
+                    ha="right",
+                    va="top",
                 )
 
         for idx in range(n, rows * cols):
@@ -910,13 +978,18 @@ def _render_category_charts(scenarios: list[dict], out_dir: Path, file_prefix: s
         ]
         legend_title = (
             "% values relative to Applied Alignments  (reference bar = absolute count)"
-            if is_dc and "applied_alignments" in present_metrics else None
+            if is_dc and "applied_alignments" in present_metrics
+            else None
         )
         fig.legend(
-            handles=legend_handles, loc="lower center",
+            handles=legend_handles,
+            loc="lower center",
             ncol=min(len(all_labels), 4),
-            bbox_to_anchor=(0.5, -0.02), fontsize=9, frameon=False,
-            title=legend_title, title_fontsize=8,
+            bbox_to_anchor=(0.5, -0.02),
+            fontsize=9,
+            frameon=False,
+            title=legend_title,
+            title_fontsize=8,
         )
 
         slug = _CATEGORY_SLUG[category]
@@ -1005,7 +1078,7 @@ def main() -> None:
     # → prefix "conference_1" (drop leading "m_i_raport_" if present).
     prefix = out_html.stem
     if prefix.startswith("m_i_raport_"):
-        prefix = prefix[len("m_i_raport_"):]
+        prefix = prefix[len("m_i_raport_") :]
     chart_paths = _render_category_charts(scenarios, out_html.parent, prefix)
     if chart_paths:
         print(f"Charts:      {len(chart_paths)} JPG file(s) → {chart_paths[0].parent}/")
